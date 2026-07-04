@@ -2,12 +2,19 @@
 
 namespace App\Http\Requests\Api;
 
+use Illuminate\Validation\Rule;
+
 class StoreTransactionRequest extends BaseApiRequest
 {
     public function rules(): array
     {
         return [
-            'category_id' => ['nullable', 'exists:categories,id'],
+            'category_id' => [
+                'nullable',
+                Rule::exists('categories', 'id')->where(function ($query) {
+                    $query->where('user_id', auth()->id());
+                }),
+            ],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'type' => ['required', 'string', 'in:income,expense'],
             'description' => ['nullable', 'string', 'max:500'],

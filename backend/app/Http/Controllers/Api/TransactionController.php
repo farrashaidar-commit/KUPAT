@@ -20,13 +20,16 @@ class TransactionController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['type', 'category_id', 'start_date', 'end_date']);
+        $filters = $request->only(['type', 'category_id', 'start_date', 'end_date', 'search', 'sort_by', 'sort_order', 'page', 'per_page']);
         $transactions = $this->transactionService->getAllForUser($request->user()->id, $filters);
-        return response()->json([
-            'success' => true,
-            'message' => 'Transactions retrieved successfully.',
-            'data' => TransactionResource::collection($transactions->load('category'))
-        ], 200);
+
+        return TransactionResource::collection($transactions)
+            ->additional([
+                'success' => true,
+                'message' => 'Transactions retrieved successfully.',
+            ])
+            ->response()
+            ->setStatusCode(200);
     }
 
     public function store(StoreTransactionRequest $request): JsonResponse

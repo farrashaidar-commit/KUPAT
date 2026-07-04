@@ -23,6 +23,8 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'balance' => isset($this->balance) ? (float)$this->balance : 0.0,
+            'monthly_budget_limit' => isset($this->monthly_budget_limit) ? (float)$this->monthly_budget_limit : 0.0,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

@@ -27,6 +27,10 @@ class AppServiceProvider extends ServiceProvider
             \App\Repositories\Contracts\TransactionRepositoryInterface::class,
             \App\Repositories\Eloquent\EloquentTransactionRepository::class
         );
+        $this->app->bind(
+            \App\Repositories\Contracts\DashboardRepositoryInterface::class,
+            \App\Repositories\Eloquent\EloquentDashboardRepository::class
+        );
     }
 
     /**

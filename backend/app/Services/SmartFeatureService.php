@@ -80,9 +80,11 @@ class SmartFeatureService
             $score -= min($overallOverspendingRatio * 40, 40);
         }
 
-        if ($user->balance < 0) {
+        $ledgerBalance = $this->transactionRepo->getNetBalanceByUser($userId);
+
+        if ($ledgerBalance < 0) {
             $score -= 30;
-        } elseif ($totalBudgetLimit > 0 && $user->balance < ($totalBudgetLimit * 0.1)) {
+        } elseif ($totalBudgetLimit > 0 && $ledgerBalance < ($totalBudgetLimit * 0.1)) {
             $score -= 15;
         }
 
@@ -195,6 +197,23 @@ class SmartFeatureService
                 'title' => 'Belum Ada Pendapatan Tercatat',
                 'message' => 'Segera catat pendapatan bulanan Anda agar tracker keuangan KUPAT dapat memproyeksikan rasio tabungan yang akurat.'
             ];
+        }
+
+        // persist insights for audit/history
+        foreach ($insights as $ins) {
+            try {
+                \App\Models\Insight::create([
+                    'user_id' => $userId,
+                    'type' => $ins['type'] ?? 'info',
+                    'title' => $ins['title'] ?? '',
+                    'message' => $ins['message'] ?? '',
+                    'meta' => [
+                        'generated_at' => now()->toDateTimeString(),
+                    ],
+                ]);
+            } catch (\Throwable $e) {
+                // ignore persistence errors for now
+            }
         }
 
         return [

@@ -32,7 +32,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/budgets', BudgetController::class);
     Route::apiResource('/transactions', TransactionController::class);
 
+    // Dashboard endpoints
+    Route::get('/dashboard', [\App\Http\Controllers\Api\DashboardController::class, 'dashboard']);
+    Route::get('/dashboard/header', [\App\Http\Controllers\Api\DashboardController::class, 'header']);
+
     // KUPAT Smart Insights
     Route::get('/financial-health', [InsightsController::class, 'getHealthScore']);
     Route::get('/financial-insights', [InsightsController::class, 'getInsights']);
+    Route::post('/reports/export', [\App\Http\Controllers\Api\ReportController::class, 'export']);
 });

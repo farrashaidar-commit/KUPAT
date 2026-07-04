@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Repositories\Contracts\TransactionRepositoryInterface;
 use App\Models\Transaction;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
@@ -17,7 +18,7 @@ class TransactionService
         $this->transactionRepo = $transactionRepo;
     }
 
-    public function getAllForUser(int $userId, array $filters = []): Collection
+    public function getAllForUser(int $userId, array $filters = []): Collection|LengthAwarePaginator
     {
         return $this->transactionRepo->findByUser($userId, $filters);
     }
@@ -53,35 +54,32 @@ class TransactionService
                 return false;
             }
 
-            $userId = $transaction->user_id;
-            $user = User::findOrFail($userId);
+            $user = User::findOrFail($transaction->user_id);
+            $oldType = $transaction->type;
+            $oldAmount = $transaction->amount;
 
-            if ($transaction->type === 'income') {
-                $user->balance -= $transaction->amount;
-            } else {
-                $user->balance += $transaction->amount;
-            }
+            $this->adjustUserBalance($user, $oldType, $oldAmount, false);
 
             $updated = $transaction->update($data);
-
             if ($updated) {
-                if ($transaction->type === 'income') {
-                    $user->balance += $transaction->amount;
-                } else {
-                    $user->balance -= $transaction->amount;
-                }
-                $user->save();
+                $this->adjustUserBalance($user, $transaction->type, $transaction->amount, true);
             } else {
-                if ($transaction->type === 'income') {
-                    $user->balance += $transaction->amount;
-                } else {
-                    $user->balance -= $transaction->amount;
-                }
-                $user->save();
+                $this->adjustUserBalance($user, $oldType, $oldAmount, true);
             }
+
+            $user->save();
 
             return $updated;
         });
+    }
+
+    protected function adjustUserBalance(User $user, string $type, float $amount, bool $apply): void
+    {
+        if ($type === 'income') {
+            $user->balance += $apply ? $amount : -$amount;
+        } else {
+            $user->balance += $apply ? -$amount : $amount;
+        }
     }
 
     public function delete(int $id): bool
