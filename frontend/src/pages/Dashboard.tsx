@@ -1,8 +1,13 @@
 import { useEffect } from 'react';
 import { useFinancialStore } from '../store/useFinancialStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ShieldAlert, TrendingUp, TrendingDown, DollarSign, Activity, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
+import StatCard from '../components/StatCard';
+import QuickActions from '../components/QuickActions';
+import EmptyState from '../components/EmptyState';
+import BudgetProgress from '../components/BudgetProgress';
+import InsightCard from '../components/InsightCard';
 
 export default function Dashboard() {
   const { user } = useAuthStore();
@@ -10,19 +15,36 @@ export default function Dashboard() {
     transactions, 
     healthScore, 
     insights, 
+    dashboardData,
     fetchTransactions, 
+    fetchDashboard,
     fetchHealthScore, 
     fetchInsights 
   } = useFinancialStore();
 
   useEffect(() => {
+    fetchDashboard();
     fetchTransactions();
     fetchHealthScore();
     fetchInsights();
   }, []);
 
-  // Format Recharts data based on transactions of the current month
-  const chartData = transactions
+  const incomeValue = dashboardData?.statistics?.monthly_income?.value ?? insights?.total_income ?? 0;
+  const expenseValue = dashboardData?.statistics?.monthly_expense?.value ?? insights?.total_expense ?? 0;
+  const healthValue = dashboardData?.statistics?.financial_health_score?.value ?? healthScore?.score ?? 100;
+  const balanceValue = dashboardData?.header?.balance ?? (user ? Number(user.balance) : 0);
+  const categoryData = dashboardData?.expense_categories ?? [];
+  const budgetProgressData = dashboardData?.budget_progress ?? {
+    monthly_budget: 0,
+    used_budget: 0,
+    remaining_budget: 0,
+    usage_percentage: 0,
+    remaining_days: 0,
+  };
+  const quickInsightItems = dashboardData?.ai_insights ?? insights?.insights ?? [];
+  const recentTransactions = dashboardData?.recent_transactions ?? transactions;
+
+  const chartData = recentTransactions
     .slice()
     .reverse()
     .reduce((acc: any[], t) => {
@@ -49,63 +71,23 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Top Welcome & Metric Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Balance Card */}
-        <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl flex items-center justify-between">
-          <div>
-            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Aset / Saldo</p>
-            <h3 className="text-2xl font-bold mt-1 text-white">Rp {user ? Number(user.balance).toLocaleString('id-ID') : '0'}</h3>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-indigo-600/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-            <DollarSign className="w-6 h-6" />
-          </div>
+      {/* Greeting + Quick Actions */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-white">{dashboardData?.header?.greeting ?? (new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 18 ? 'Good Afternoon' : 'Good Evening')}, {user?.name || 'User'} 👋</h2>
+          <p className="text-sm text-gray-400 mt-1">{dashboardData?.header?.today ?? `Here's your financial overview today — ${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}`}</p>
         </div>
+        <div>
+          <QuickActions />
+        </div>
+      </div>
 
-        {/* Income Card */}
-        <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl flex items-center justify-between">
-          <div>
-            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Pemasukan Bulan Ini</p>
-            <h3 className="text-2xl font-bold mt-1 text-emerald-400">Rp {insights ? Number(insights.total_income).toLocaleString('id-ID') : '0'}</h3>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Expense Card */}
-        <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl flex items-center justify-between">
-          <div>
-            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Pengeluaran Bulan Ini</p>
-            <h3 className="text-2xl font-bold mt-1 text-rose-400">Rp {insights ? Number(insights.total_expense).toLocaleString('id-ID') : '0'}</h3>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-400 border border-rose-500/20">
-            <TrendingDown className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Budget Health score */}
-        <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl flex items-center justify-between">
-          <div>
-            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Skor Kesehatan Anggaran</p>
-            <div className="flex items-center gap-2 mt-1">
-              <h3 className="text-2xl font-bold text-white">{healthScore ? healthScore.score : '100'}</h3>
-              <span 
-                className="text-xs px-2 py-0.5 rounded-full font-medium border"
-                style={{ 
-                  color: healthScore?.color || '#22c55e', 
-                  borderColor: (healthScore?.color || '#22c55e') + '30',
-                  backgroundColor: (healthScore?.color || '#22c55e') + '10' 
-                }}
-              >
-                {healthScore ? healthScore.status : 'Excellent'}
-              </span>
-            </div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-indigo-600/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-            <Activity className="w-6 h-6" />
-          </div>
-        </div>
+      {/* Top Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard title="Total Aset / Saldo" value={balanceValue} icon={DollarSign} color="emerald" />
+        <StatCard title="Pemasukan Bulan Ini" value={incomeValue} icon={TrendingUp} color="emerald" />
+        <StatCard title="Pengeluaran Bulan Ini" value={expenseValue} icon={TrendingDown} color="rose" />
+        <StatCard title="Skor Kesehatan Anggaran" value={healthValue} icon={Activity} color="indigo" />
       </div>
 
       {/* Main Charts & Widgets Section */}
@@ -113,123 +95,150 @@ export default function Dashboard() {
         {/* Cash Flow Chart Card */}
         <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl lg:col-span-2 space-y-4">
           <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Analisis Arus Kas Terkini</h4>
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} />
-                <YAxis stroke="#9ca3af" fontSize={11} tickFormatter={(v) => `Rp ${v / 1000}k`} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#111928', borderColor: '#1e293b', borderRadius: '12px' }}
-                  labelStyle={{ color: '#fff' }}
-                />
-                <Area type="monotone" dataKey="Pemasukan" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" />
-                <Area type="monotone" dataKey="Pengeluaran" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-80 w-full bg-gradient-to-b from-white/2 via-white/1 to-transparent rounded-xl p-2">
+            {chartData.length === 0 ? (
+              <EmptyState title="No financial data yet" description="Start adding your first transaction to unlock insights." actionLabel="Add Transaction" onAction={() => {}} />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.28}/>
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#121827" />
+                  <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} />
+                  <YAxis stroke="#9ca3af" fontSize={11} tickFormatter={(v) => `Rp ${v / 1000}k`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0b1220', borderColor: '#111827', borderRadius: '12px' }}
+                    labelStyle={{ color: '#fff' }}
+                  />
+                  <Area type="monotone" dataKey="Pemasukan" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorIncome)" />
+                  <Area type="monotone" dataKey="Pengeluaran" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorExpense)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
         {/* Smart Insights Sidebar */}
         <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl flex flex-col justify-between">
           <div className="space-y-4">
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Rekomendasi & Analisis AI</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Rekomendasi & Analisis AI</h4>
+              <span className="text-xs text-gray-400">Status: <strong className="ml-1 text-white">Live</strong></span>
+            </div>
             <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
-              {insights && insights.insights.length > 0 ? (
-                insights.insights.map((insight: any, idx: number) => {
-                  const Icon = insight.type === 'success' 
-                    ? CheckCircle 
-                    : insight.type === 'danger' 
-                      ? ShieldAlert 
-                      : insight.type === 'warning' 
-                        ? AlertTriangle 
-                        : Info;
-
-                  const colorClass = insight.type === 'success' 
-                    ? 'text-emerald-400 bg-emerald-500/5 border-emerald-500/10' 
-                    : insight.type === 'danger' 
-                      ? 'text-rose-400 bg-rose-500/5 border-rose-500/10' 
-                      : 'text-amber-400 bg-amber-500/5 border-amber-500/10';
-
-                  return (
-                    <div key={idx} className={`p-4 rounded-xl border flex gap-3 ${colorClass}`}>
-                      <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <span className="text-sm font-semibold">{insight.title}</span>
-                        <p className="text-xs text-gray-300 leading-relaxed">{insight.message}</p>
-                      </div>
-                    </div>
-                  );
-                })
+              {quickInsightItems.length > 0 ? (
+                quickInsightItems.map((insight: any, idx: number) => (
+                  <InsightCard key={idx} insight={insight} />
+                ))
               ) : (
-                <div className="text-center py-8 text-gray-500 text-sm">
-                  Belum ada analisis finansial terkumpul.
-                </div>
+                <EmptyState title="No insights yet" description="AI will analyze your transactions and surface recommendations here." actionLabel="Run Analysis" onAction={fetchDashboard} />
               )}
+            </div>
+            <div className="mt-4">
+              <button className="w-full px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-semibold">View Full Analysis</button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Transactions List */}
-      <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl space-y-4">
-        <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Transaksi Terbaru</h4>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-[#1e293b] text-gray-400">
-                <th className="py-3 font-semibold">Tanggal</th>
-                <th className="py-3 font-semibold">Deskripsi</th>
-                <th className="py-3 font-semibold">Kategori</th>
-                <th className="py-3 font-semibold">Tipe</th>
-                <th className="py-3 font-semibold text-right">Jumlah</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#1e293b]/50">
-              {transactions.slice(0, 5).map((t) => (
-                <tr key={t.id} className="text-gray-200">
-                  <td className="py-3">{new Date(t.transaction_date).toLocaleDateString('id-ID')}</td>
-                  <td className="py-3 font-medium">{t.description || 'Tidak ada deskripsi'}</td>
-                  <td className="py-3">
-                    <span 
-                      className="px-2 py-0.5 rounded-full text-xs"
-                      style={{ 
-                        backgroundColor: (t.category?.color || '#3b82f6') + '20', 
-                        color: t.category?.color || '#3b82f6' 
-                      }}
-                    >
-                      {t.category?.name || 'Umum'}
-                    </span>
-                  </td>
-                  <td className="py-3 uppercase font-semibold text-xs">
-                    <span className={t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}>
-                      {t.type === 'income' ? 'Masuk' : 'Keluar'}
-                    </span>
-                  </td>
-                  <td className={`py-3 text-right font-semibold ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {t.type === 'income' ? '+' : '-'} Rp {Number(t.amount).toLocaleString('id-ID')}
-                  </td>
-                </tr>
-              ))}
-              {transactions.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center py-6 text-gray-500">
-                    Belum ada transaksi tercatat.
-                  </td>
-                </tr>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Transaction Table */}
+        <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Transaksi Terbaru</h4>
+            <div className="text-sm text-gray-400">Showing {Math.min(5, transactions.length)} of {transactions.length}</div>
+          </div>
+
+          {transactions.length === 0 ? (
+            <EmptyState title="No transactions yet." description="Create your first transaction to see activity here." actionLabel="Create Transaction" onAction={() => {}} />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-[#1e293b] text-gray-400">
+                    <th className="py-3 font-semibold">Tanggal</th>
+                    <th className="py-3 font-semibold">Deskripsi</th>
+                    <th className="py-3 font-semibold">Kategori</th>
+                    <th className="py-3 font-semibold">Tipe</th>
+                    <th className="py-3 font-semibold text-right">Jumlah</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#1e293b]/50">
+                  {transactions.slice(0, 5).map((t) => (
+                    <tr key={t.id} className="text-gray-200 hover:bg-[#081122] transition-colors">
+                      <td className="py-3 text-sm">{new Date(t.transaction_date).toLocaleDateString('id-ID')}</td>
+                      <td className="py-3 font-medium text-sm">{t.description || 'No description'}</td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full" style={{ background: (t.category?.color || '#3b82f6') }} />
+                          <span className="px-2 py-0.5 rounded-full text-xs text-white/90" style={{ backgroundColor: (t.category?.color || '#3b82f6') + '20' }}>{t.category?.name || 'General'}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 uppercase font-semibold text-xs">
+                        <span className={t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}>
+                          {t.type === 'income' ? 'Masuk' : 'Keluar'}
+                        </span>
+                      </td>
+                      <td className={`py-3 text-right font-semibold ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {t.type === 'income' ? '+' : '-'} Rp {Number(t.amount).toLocaleString('id-ID')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Right-side: Category Donut + Budget Progress */}
+        <div className="space-y-6">
+          <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl">
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Spending by Category</h4>
+            <div className="h-48">
+              {transactions.length === 0 ? (
+                <EmptyState title="No categories yet" description="Transactions will populate this chart." actionLabel="Add Transaction" onAction={() => {}} />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie dataKey="value" data={
+                      (() => {
+                        const map: any = {};
+                        transactions.forEach((t) => {
+                          const name = t.category?.name || 'General';
+                          map[name] = (map[name] || 0) + Number(t.amount);
+                        });
+                        return Object.keys(map).map(k => ({ name: k, value: map[k] }));
+                      })()
+                    } innerRadius={50} outerRadius={80} paddingAngle={4}>
+                      {(() => {
+                        const colors = ['#60a5fa','#34d399','#f87171','#fbbf24','#a78bfa','#f472b6'];
+                        return Array.from({ length: 6 }).map((_, i) => (
+                          <Cell key={i} fill={colors[i % colors.length]} />
+                        ));
+                      })()}
+                    </Pie>
+                    <Legend verticalAlign="bottom" wrapperStyle={{ color: '#9ca3af' }} />
+                  </PieChart>
+                </ResponsiveContainer>
               )}
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl">
+            <BudgetProgress items={[
+              { label: 'Monthly Budget', value: budgetProgressData.monthly_budget, max: Math.max(budgetProgressData.monthly_budget, 1), color: 'linear-gradient(90deg,#06b6d4,#06b6d4)' },
+              { label: 'Used Budget', value: budgetProgressData.used_budget, max: Math.max(budgetProgressData.monthly_budget, 1), color: 'linear-gradient(90deg,#10b981,#34d399)' },
+              { label: 'Remaining Budget', value: budgetProgressData.remaining_budget, max: Math.max(budgetProgressData.monthly_budget, 1), color: 'linear-gradient(90deg,#f97316,#fb923c)' }
+            ]} />
+          </div>
         </div>
       </div>
     </div>

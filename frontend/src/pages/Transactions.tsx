@@ -5,6 +5,7 @@ import { Plus, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 export default function Transactions() {
   const { 
     transactions, 
+    transactionPagination,
     categories, 
     fetchTransactions, 
     fetchCategories, 
@@ -22,17 +23,54 @@ export default function Transactions() {
   // Filters state
   const [typeFilter, setTypeFilter] = useState('');
   const [catFilter, setCatFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('transaction_date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState('20');
+
+  const activeFilters = {
+    ...(typeFilter ? { type: typeFilter } : {}),
+    ...(catFilter ? { category_id: catFilter } : {}),
+    ...(searchTerm ? { search: searchTerm } : {}),
+    sort_by: sortBy,
+    sort_order: sortOrder,
+    page: currentPage,
+    per_page: perPage,
+  };
 
   useEffect(() => {
-    fetchTransactions();
+    fetchTransactions(activeFilters);
     fetchCategories();
   }, []);
 
   const handleApplyFilters = () => {
-    const filters: any = {};
-    if (typeFilter) filters.type = typeFilter;
-    if (catFilter) filters.category_id = catFilter;
-    fetchTransactions(filters);
+    setCurrentPage(1);
+    fetchTransactions({
+      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(catFilter ? { category_id: catFilter } : {}),
+      ...(searchTerm ? { search: searchTerm } : {}),
+      sort_by: sortBy,
+      sort_order: sortOrder,
+      page: 1,
+      per_page: perPage,
+    });
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || (transactionPagination && page > transactionPagination.last_page)) {
+      return;
+    }
+    setCurrentPage(page);
+    fetchTransactions({
+      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(catFilter ? { category_id: catFilter } : {}),
+      ...(searchTerm ? { search: searchTerm } : {}),
+      sort_by: sortBy,
+      sort_order: sortOrder,
+      page,
+      per_page: perPage,
+    });
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -46,6 +84,14 @@ export default function Transactions() {
         category_id: categoryId ? Number(categoryId) : null,
         description,
         transaction_date: date.replace('T', ' ') + ':00' // Format: YYYY-MM-DD HH:mm:ss
+      }, {
+        ...(typeFilter ? { type: typeFilter } : {}),
+        ...(catFilter ? { category_id: catFilter } : {}),
+        ...(searchTerm ? { search: searchTerm } : {}),
+        sort_by: sortBy,
+        sort_order: sortOrder,
+        page: currentPage,
+        per_page: perPage,
       });
       // Reset form
       setAmount('');
@@ -187,6 +233,55 @@ export default function Transactions() {
           </select>
         </div>
 
+        <div>
+          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Cari</label>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Deskripsi atau kategori..."
+            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Urutkan</label>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
+          >
+            <option value="transaction_date">Tanggal</option>
+            <option value="amount">Jumlah</option>
+            <option value="type">Tipe</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Arah</label>
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
+          >
+            <option value="desc">Baru ke Lama</option>
+            <option value="asc">Lama ke Baru</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Per Halaman</label>
+          <select
+            value={perPage}
+            onChange={(e) => setPerPage(e.target.value)}
+            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+
         <button
           onClick={handleApplyFilters}
           className="bg-gray-800 hover:bg-gray-700 border border-[#1e293b] text-gray-200 text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
@@ -248,7 +343,11 @@ export default function Transactions() {
                   </td>
                   <td className="py-4 px-6 text-center">
                     <button
-                      onClick={() => deleteTransaction(t.id)}
+                      onClick={() => {
+                        if (window.confirm('Yakin ingin menghapus transaksi ini?')) {
+                          deleteTransaction(t.id, activeFilters);
+                        }
+                      }}
                       className="text-red-400 hover:text-red-300 p-1.5 rounded-lg hover:bg-red-500/5 border border-transparent hover:border-red-500/10 transition-colors"
                       title="Hapus Transaksi"
                     >
@@ -268,6 +367,30 @@ export default function Transactions() {
           </table>
         </div>
       </div>
+
+      {transactionPagination && transactionPagination.total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d1322] border border-[#1e293b] rounded-2xl p-4">
+          <div className="text-sm text-gray-400">
+            Menampilkan halaman {transactionPagination.current_page} dari {transactionPagination.last_page}, total {transactionPagination.total} transaksi.
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="px-3 py-2 rounded-xl text-sm font-medium border border-[#1e293b] text-gray-200 bg-[#111928] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Sebelumnya
+            </button>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={transactionPagination && currentPage >= transactionPagination.last_page}
+              className="px-3 py-2 rounded-xl text-sm font-medium border border-[#1e293b] text-gray-200 bg-[#111928] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Selanjutnya
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

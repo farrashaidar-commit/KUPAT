@@ -47,12 +47,45 @@ interface InsightsData {
   insights: any[];
 }
 
+interface NotificationItem {
+  id: number;
+  title: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+  priority: string;
+}
+
+interface DashboardData {
+  header: Record<string, any>;
+  statistics: Record<string, any>;
+  cashflow: any[];
+  expense_categories: any[];
+  budget_progress: Record<string, any>;
+  financial_health: Record<string, any>;
+  ai_insights: any[];
+  recent_transactions: any[];
+  notifications: NotificationItem[];
+  quick_actions: any[];
+}
+
+interface PaginationMeta {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
 interface FinancialState {
   categories: Category[];
   budgets: Budget[];
   transactions: Transaction[];
+  transactionPagination: PaginationMeta | null;
   healthScore: HealthScore | null;
   insights: InsightsData | null;
+  dashboardData: DashboardData | null;
+  notifications: NotificationItem[];
+  searchResults: Transaction[];
   isLoading: boolean;
   error: string | null;
   fetchCategories: () => Promise<void>;
@@ -62,8 +95,11 @@ interface FinancialState {
   createBudget: (data: any) => Promise<void>;
   deleteBudget: (id: number) => Promise<void>;
   fetchTransactions: (filters?: any) => Promise<void>;
-  createTransaction: (data: any) => Promise<void>;
-  deleteTransaction: (id: number) => Promise<void>;
+  createTransaction: (data: any, filters?: any) => Promise<void>;
+  updateTransaction: (id: number, data: any, filters?: any) => Promise<void>;
+  deleteTransaction: (id: number, filters?: any) => Promise<void>;
+  fetchDashboard: () => Promise<void>;
+  searchTransactions: (query: string) => Promise<void>;
   fetchHealthScore: () => Promise<void>;
   fetchInsights: () => Promise<void>;
 }
@@ -72,8 +108,12 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
   categories: [],
   budgets: [],
   transactions: [],
+  transactionPagination: null,
   healthScore: null,
   insights: null,
+  dashboardData: null,
+  notifications: [],
+  searchResults: [],
   isLoading: false,
   error: null,
 
@@ -128,9 +168,10 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
         method: 'POST',
         body: JSON.stringify(data)
       });
-      get().fetchBudgets();
-      get().fetchHealthScore();
-      get().fetchInsights();
+      await get().fetchBudgets();
+      await get().fetchDashboard();
+      await get().fetchHealthScore();
+      await get().fetchInsights();
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
@@ -141,9 +182,10 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
     set({ isLoading: true });
     try {
       await apiFetch(`/budgets/${id}`, { method: 'DELETE' });
-      get().fetchBudgets();
-      get().fetchHealthScore();
-      get().fetchInsights();
+      await get().fetchBudgets();
+      await get().fetchDashboard();
+      await get().fetchHealthScore();
+      await get().fetchInsights();
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
     }
@@ -155,37 +197,86 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
       const queryString = new URLSearchParams(filters).toString();
       const path = queryString ? `/transactions?${queryString}` : '/transactions';
       const res = await apiFetch(path);
-      set({ transactions: res.data, isLoading: false });
+      const transactionData = Array.isArray(res.data) ? res.data : res.data.data ?? [];
+      const paginationMeta = res.meta ?? null;
+      set({ transactions: transactionData, transactionPagination: paginationMeta, isLoading: false });
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
     }
   },
 
-  createTransaction: async (data) => {
+  createTransaction: async (data, filters = {}) => {
     set({ isLoading: true });
     try {
       await apiFetch('/transactions', {
         method: 'POST',
         body: JSON.stringify(data)
       });
-      get().fetchTransactions();
-      useAuthStore.getState().fetchUser();
-      get().fetchHealthScore();
-      get().fetchInsights();
+      await get().fetchTransactions(filters);
+      await useAuthStore.getState().fetchUser();
+      await get().fetchDashboard();
+      await get().fetchHealthScore();
+      await get().fetchInsights();
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
     }
   },
 
-  deleteTransaction: async (id) => {
+  updateTransaction: async (id, data, filters = {}) => {
+    set({ isLoading: true });
+    try {
+      await apiFetch(`/transactions/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+      await get().fetchTransactions(filters);
+      await useAuthStore.getState().fetchUser();
+      await get().fetchDashboard();
+      await get().fetchHealthScore();
+      await get().fetchInsights();
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err;
+    }
+  },
+
+  deleteTransaction: async (id, filters = {}) => {
     set({ isLoading: true });
     try {
       await apiFetch(`/transactions/${id}`, { method: 'DELETE' });
-      get().fetchTransactions();
-      useAuthStore.getState().fetchUser();
-      get().fetchHealthScore();
-      get().fetchInsights();
+      await get().fetchTransactions(filters);
+      await useAuthStore.getState().fetchUser();
+      await get().fetchDashboard();
+      await get().fetchHealthScore();
+      await get().fetchInsights();
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+    }
+  },
+
+  searchTransactions: async (query: string) => {
+    if (!query.trim()) {
+      set({ searchResults: [] });
+      return;
+    }
+
+    set({ isLoading: true });
+    try {
+      const encodedQuery = encodeURIComponent(query.trim());
+      const res = await apiFetch(`/transactions?search=${encodedQuery}`);
+      const transactionData = Array.isArray(res.data) ? res.data : res.data.data ?? [];
+      set({ searchResults: transactionData, isLoading: false });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+    }
+  },
+
+  fetchDashboard: async () => {
+    set({ isLoading: true });
+    try {
+      const res = await apiFetch('/dashboard');
+      set({ dashboardData: res.data, notifications: res.data.notifications || [], isLoading: false });
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
     }
