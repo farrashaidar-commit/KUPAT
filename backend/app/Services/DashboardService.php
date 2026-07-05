@@ -27,10 +27,10 @@ class DashboardService
     public function getDashboard(int $userId): array
     {
         $now = Carbon::now();
-        $startOfMonth = $now->copy()->startOfMonth()->toDateString();
-        $endOfMonth = $now->copy()->endOfMonth()->toDateString();
-        $prevStart = $now->copy()->subMonthNoOverflow()->startOfMonth()->toDateString();
-        $prevEnd = $now->copy()->subMonthNoOverflow()->endOfMonth()->toDateString();
+        $startOfMonth = $now->copy()->startOfMonth()->startOfDay()->toDateTimeString();
+        $endOfMonth = $now->copy()->endOfMonth()->endOfDay()->toDateTimeString();
+        $prevStart = $now->copy()->subMonthNoOverflow()->startOfMonth()->startOfDay()->toDateTimeString();
+        $prevEnd = $now->copy()->subMonthNoOverflow()->endOfMonth()->endOfDay()->toDateTimeString();
 
         $user = $this->repository->getUserById($userId);
         $ledgerBalance = $this->repository->getBalanceFromTransactions($userId);
@@ -44,8 +44,9 @@ class DashboardService
         $unreadCount = $this->repository->getUnreadNotificationCount($userId);
         $healthData = $this->financialHealthService->calculate($userId, $incomeData, $categorySpending, $budgets, $goals);
         $aiInsights = $this->smartFeatureService->getSmartInsights($userId);
+        $budgetProgress = $this->budgetCalculationService->calculate($budgets);
 
-        $statistics = $this->buildStatistics($user, $ledgerBalance, $incomeData, $previousIncomeData, $healthData, $budgets);
+        $statistics = $this->buildStatistics($user, $ledgerBalance, $incomeData, $previousIncomeData, $healthData, $budgets, $budgetProgress);
         $header = $this->buildHeader($user, $ledgerBalance, $unreadCount);
 
         return [
@@ -53,7 +54,7 @@ class DashboardService
             'statistics' => $statistics,
             'cashflow' => $cashflow,
             'expense_categories' => $categorySpending,
-            'budget_progress' => $this->budgetCalculationService->calculate($budgets),
+            'budget_progress' => $budgetProgress,
             'financial_health' => $healthData,
             'ai_insights' => $aiInsights['insights'] ?? [],
             'recent_transactions' => $this->formatTransactions($this->repository->getRecentTransactions($userId)),
@@ -84,7 +85,7 @@ class DashboardService
         ];
     }
 
-    protected function buildStatistics($user, float $ledgerBalance, $incomeData, $previousIncomeData, $healthData, $budgets): array
+    protected function buildStatistics($user, float $ledgerBalance, $incomeData, $previousIncomeData, $healthData, $budgets, array $budgetProgress): array
     {
         $totalIncome = $incomeData['income'];
         $totalExpense = $incomeData['expense'];
@@ -92,7 +93,7 @@ class DashboardService
         $previousNet = $previousIncomeData['income'] - $previousIncomeData['expense'];
         $growth = $previousNet !== 0 ? round((($net - $previousNet) / max(abs($previousNet), 1)) * 100, 2) : 0;
 
-        $budgetUsage = $this->budgetCalculationService->calculate($budgets)['usage_percentage'] ?? 0;
+        $budgetUsage = $budgetProgress['usage_percentage'] ?? 0;
         $savingsRate = $totalIncome > 0 ? round((($totalIncome - $totalExpense) / $totalIncome) * 100, 2) : 0;
 
         return [
@@ -122,8 +123,8 @@ class DashboardService
 
     protected function percentageChange(float $current, float $previous): float
     {
-        if ($previous === 0) {
-            return $current === 0 ? 0 : 100;
+        if ($previous == 0) {
+            return $current == 0 ? 0 : 100;
         }
         return round((($current - $previous) / abs($previous)) * 100, 2);
     }

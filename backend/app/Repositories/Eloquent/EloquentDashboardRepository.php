@@ -53,18 +53,18 @@ class EloquentDashboardRepository implements DashboardRepositoryInterface
         $now = Carbon::now();
 
         if ($period === 'weekly') {
-            $start = $now->copy()->startOfWeek();
-            $end = $now->copy()->endOfWeek();
+            $start = $now->copy()->startOfWeek()->startOfDay();
+            $end = $now->copy()->endOfWeek()->endOfDay();
             $interval = $start->copy();
             $format = 'Y-m-d';
         } elseif ($period === 'yearly') {
-            $start = $now->copy()->startOfYear();
-            $end = $now->copy()->endOfYear();
+            $start = $now->copy()->startOfYear()->startOfDay();
+            $end = $now->copy()->endOfYear()->endOfDay();
             $interval = $start->copy();
             $format = 'Y-m';
         } else {
-            $start = $now->copy()->startOfMonth();
-            $end = $now->copy()->endOfMonth();
+            $start = $now->copy()->startOfMonth()->startOfDay();
+            $end = $now->copy()->endOfMonth()->endOfDay();
             $interval = $start->copy();
             $format = 'Y-m-d';
         }
@@ -79,7 +79,7 @@ class EloquentDashboardRepository implements DashboardRepositoryInterface
         }
 
         $transactions = Transaction::where('user_id', $userId)
-            ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()])
+            ->whereBetween('transaction_date', [$start->toDateTimeString(), $end->toDateTimeString()])
             ->get(['transaction_date', 'amount', 'type']);
 
         foreach ($transactions as $transaction) {

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Repositories\Contracts\TransactionRepositoryInterface;
 use App\Repositories\Contracts\BudgetRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -28,8 +29,8 @@ class SmartFeatureService
     {
         $user = User::findOrFail($userId);
         $now = Carbon::now();
-        $startOfMonth = $now->copy()->startOfMonth()->toDateString();
-        $endOfMonth = $now->copy()->endOfMonth()->toDateString();
+        $startOfMonth = $now->copy()->startOfMonth()->startOfDay()->toDateTimeString();
+        $endOfMonth = $now->copy()->endOfMonth()->endOfDay()->toDateTimeString();
 
         $budgets = $this->budgetRepo->findByUser($userId);
         
@@ -39,15 +40,26 @@ class SmartFeatureService
         $totalCategories = count($budgets);
 
         $details = [];
+        $rangeTotals = [];
 
         foreach ($budgets as $budget) {
+            $budgetStart = $budget->start_date ? (method_exists($budget->start_date, 'toDateTimeString') ? $budget->start_date->startOfDay()->toDateTimeString() : $budget->start_date) : $startOfMonth;
+            $budgetEnd = $budget->end_date ? (method_exists($budget->end_date, 'toDateTimeString') ? $budget->end_date->endOfDay()->toDateTimeString() : $budget->end_date) : $endOfMonth;
+            $rangeKey = $budgetStart . '|' . $budgetEnd;
+
+            if (!isset($rangeTotals[$rangeKey])) {
+                $rangeTotals[$rangeKey] = Transaction::where('user_id', $userId)
+                    ->where('type', 'expense')
+                    ->whereBetween('transaction_date', [$budgetStart, $budgetEnd])
+                    ->whereNotNull('category_id')
+                    ->selectRaw('category_id, SUM(amount) as total')
+                    ->groupBy('category_id')
+                    ->pluck('total', 'category_id')
+                    ->mapWithKeys(fn ($total, $categoryId) => [(int) $categoryId => (float) $total]);
+            }
+
+            $spent = (float) ($rangeTotals[$rangeKey][$budget->category_id] ?? 0);
             $totalBudgetLimit += $budget->amount;
-            $spent = $this->transactionRepo->getExpensesSumByCategory(
-                $userId,
-                $budget->category_id,
-                $budget->start_date ? $budget->start_date->toDateString() : $startOfMonth,
-                $budget->end_date ? $budget->end_date->toDateString() : $endOfMonth
-            );
             $totalSpentInBudgetedCategories += $spent;
 
             $percentage = $budget->amount > 0 ? ($spent / $budget->amount) * 100 : 0;
@@ -151,8 +163,8 @@ class SmartFeatureService
         }
 
         $now = Carbon::now();
-        $startOfMonth = $now->copy()->startOfMonth()->toDateString();
-        $endOfMonth = $now->copy()->endOfMonth()->toDateString();
+        $startOfMonth = $now->copy()->startOfMonth()->startOfDay()->toDateTimeString();
+        $endOfMonth = $now->copy()->endOfMonth()->endOfDay()->toDateTimeString();
 
         $transactions = $this->transactionRepo->findByUser($userId, [
             'start_date' => $startOfMonth,
@@ -197,23 +209,6 @@ class SmartFeatureService
                 'title' => 'Belum Ada Pendapatan Tercatat',
                 'message' => 'Segera catat pendapatan bulanan Anda agar tracker keuangan KUPAT dapat memproyeksikan rasio tabungan yang akurat.'
             ];
-        }
-
-        // persist insights for audit/history
-        foreach ($insights as $ins) {
-            try {
-                \App\Models\Insight::create([
-                    'user_id' => $userId,
-                    'type' => $ins['type'] ?? 'info',
-                    'title' => $ins['title'] ?? '',
-                    'message' => $ins['message'] ?? '',
-                    'meta' => [
-                        'generated_at' => now()->toDateTimeString(),
-                    ],
-                ]);
-            } catch (\Throwable $e) {
-                // ignore persistence errors for now
-            }
         }
 
         return [

@@ -8,32 +8,20 @@ import QuickActions from '../components/QuickActions';
 import EmptyState from '../components/EmptyState';
 import BudgetProgress from '../components/BudgetProgress';
 import InsightCard from '../components/InsightCard';
+import { buildCashflowChartData } from '../utils/dashboardChart';
 
 export default function Dashboard() {
   const { user } = useAuthStore();
-  const { 
-    transactions, 
-    healthScore, 
-    insights, 
-    dashboardData,
-    fetchTransactions, 
-    fetchDashboard,
-    fetchHealthScore, 
-    fetchInsights 
-  } = useFinancialStore();
+  const { dashboardData, fetchDashboard } = useFinancialStore();
 
   useEffect(() => {
     fetchDashboard();
-    fetchTransactions();
-    fetchHealthScore();
-    fetchInsights();
   }, []);
 
-  const incomeValue = dashboardData?.statistics?.monthly_income?.value ?? insights?.total_income ?? 0;
-  const expenseValue = dashboardData?.statistics?.monthly_expense?.value ?? insights?.total_expense ?? 0;
-  const healthValue = dashboardData?.statistics?.financial_health_score?.value ?? healthScore?.score ?? 100;
+  const incomeValue = dashboardData?.statistics?.monthly_income?.value ?? 0;
+  const expenseValue = dashboardData?.statistics?.monthly_expense?.value ?? 0;
+  const healthValue = dashboardData?.statistics?.financial_health_score?.value ?? 100;
   const balanceValue = dashboardData?.header?.balance ?? (user ? Number(user.balance) : 0);
-  const categoryData = dashboardData?.expense_categories ?? [];
   const budgetProgressData = dashboardData?.budget_progress ?? {
     monthly_budget: 0,
     used_budget: 0,
@@ -41,33 +29,9 @@ export default function Dashboard() {
     usage_percentage: 0,
     remaining_days: 0,
   };
-  const quickInsightItems = dashboardData?.ai_insights ?? insights?.insights ?? [];
-  const recentTransactions = dashboardData?.recent_transactions ?? transactions;
-
-  const chartData = recentTransactions
-    .slice()
-    .reverse()
-    .reduce((acc: any[], t) => {
-      const date = new Date(t.transaction_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-      const amount = Number(t.amount);
-      const existing = acc.find(item => item.date === date);
-
-      if (existing) {
-        if (t.type === 'income') {
-          existing.Pemasukan += amount;
-        } else {
-          existing.Pengeluaran += amount;
-        }
-      } else {
-        acc.push({
-          date,
-          Pemasukan: t.type === 'income' ? amount : 0,
-          Pengeluaran: t.type === 'expense' ? amount : 0
-        });
-      }
-      return acc;
-    }, [])
-    .slice(-7); // take last 7 data points
+  const quickInsightItems = dashboardData?.ai_insights ?? [];
+  const recentTransactions = dashboardData?.recent_transactions ?? [];
+  const chartData = buildCashflowChartData(dashboardData?.cashflow ?? []);
 
   return (
     <div className="space-y-6">
@@ -154,10 +118,10 @@ export default function Dashboard() {
         <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Transaksi Terbaru</h4>
-            <div className="text-sm text-gray-400">Showing {Math.min(5, transactions.length)} of {transactions.length}</div>
+            <div className="text-sm text-gray-400">Showing {Math.min(5, recentTransactions.length)} of {recentTransactions.length}</div>
           </div>
 
-          {transactions.length === 0 ? (
+          {recentTransactions.length === 0 ? (
             <EmptyState title="No transactions yet." description="Create your first transaction to see activity here." actionLabel="Create Transaction" onAction={() => {}} />
           ) : (
             <div className="overflow-x-auto">
@@ -172,7 +136,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1e293b]/50">
-                  {transactions.slice(0, 5).map((t) => (
+                  {recentTransactions.slice(0, 5).map((t) => (
                     <tr key={t.id} className="text-gray-200 hover:bg-[#081122] transition-colors">
                       <td className="py-3 text-sm">{new Date(t.transaction_date).toLocaleDateString('id-ID')}</td>
                       <td className="py-3 font-medium text-sm">{t.description || 'No description'}</td>
@@ -203,7 +167,7 @@ export default function Dashboard() {
           <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl">
             <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Spending by Category</h4>
             <div className="h-48">
-              {transactions.length === 0 ? (
+              {recentTransactions.length === 0 ? (
                 <EmptyState title="No categories yet" description="Transactions will populate this chart." actionLabel="Add Transaction" onAction={() => {}} />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
@@ -211,7 +175,7 @@ export default function Dashboard() {
                     <Pie dataKey="value" data={
                       (() => {
                         const map: any = {};
-                        transactions.forEach((t) => {
+                        recentTransactions.forEach((t) => {
                           const name = t.category?.name || 'General';
                           map[name] = (map[name] || 0) + Number(t.amount);
                         });

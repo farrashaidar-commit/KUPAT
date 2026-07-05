@@ -86,6 +86,7 @@ interface FinancialState {
   dashboardData: DashboardData | null;
   notifications: NotificationItem[];
   searchResults: Transaction[];
+  dashboardRequestPromise: Promise<void> | null;
   isLoading: boolean;
   error: string | null;
   fetchCategories: () => Promise<void>;
@@ -114,6 +115,7 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
   dashboardData: null,
   notifications: [],
   searchResults: [],
+  dashboardRequestPromise: null,
   isLoading: false,
   error: null,
 
@@ -272,14 +274,31 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
     }
   },
 
-  fetchDashboard: async () => {
-    set({ isLoading: true });
-    try {
-      const res = await apiFetch('/dashboard');
-      set({ dashboardData: res.data, notifications: res.data.notifications || [], isLoading: false });
-    } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+  fetchDashboard: async (force = false) => {
+    if (!force && (get().dashboardData || get().dashboardRequestPromise)) {
+      return get().dashboardRequestPromise ?? Promise.resolve();
     }
+
+    const request = (async () => {
+      set({ isLoading: true });
+      try {
+        const res = await apiFetch('/dashboard');
+        const dashboard = res.data;
+        const previousTransactions = get().transactions;
+        set({
+          dashboardData: dashboard,
+          notifications: dashboard.notifications || [],
+          transactions: previousTransactions,
+          dashboardRequestPromise: null,
+          isLoading: false
+        });
+      } catch (err: any) {
+        set({ error: err.message, dashboardRequestPromise: null, isLoading: false });
+      }
+    })();
+
+    set({ dashboardRequestPromise: request });
+    return request;
   },
 
   fetchHealthScore: async () => {

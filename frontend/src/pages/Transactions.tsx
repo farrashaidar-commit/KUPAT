@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useFinancialStore } from '../store/useFinancialStore';
-import { Plus, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Plus, Trash2, ArrowUpRight, ArrowDownLeft, Pencil } from 'lucide-react';
 
 export default function Transactions() {
   const { 
@@ -10,6 +10,7 @@ export default function Transactions() {
     fetchTransactions, 
     fetchCategories, 
     createTransaction, 
+    updateTransaction,
     deleteTransaction
   } = useFinancialStore();
 
@@ -19,6 +20,9 @@ export default function Transactions() {
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date().toISOString().substring(0, 16)); // YYYY-MM-DDTHH:mm
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   // Filters state
   const [typeFilter, setTypeFilter] = useState('');
@@ -73,33 +77,80 @@ export default function Transactions() {
     });
   };
 
+  const handleCancel = () => {
+    setAmount('');
+    setDescription('');
+    setCategoryId('');
+    setEditingTransaction(null);
+    setShowAddForm(false);
+    setValidationErrors({});
+  };
+
+  const handleEditClick = (t: any) => {
+    setEditingTransaction(t);
+    setAmount(t.amount.toString());
+    setType(t.type);
+    setCategoryId(t.category_id ? t.category_id.toString() : '');
+    setDescription(t.description || '');
+    try {
+      const isoDate = new Date(t.transaction_date.replace(' ', 'T')).toISOString().substring(0, 16);
+      setDate(isoDate);
+    } catch {
+      setDate(new Date(t.transaction_date).toISOString().substring(0, 16));
+    }
+    setShowAddForm(true);
+    setValidationErrors({});
+  };
+
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) return;
+    if (!amount || Number(amount) <= 0) {
+      setValidationErrors({ amount: ['Jumlah transaksi harus lebih besar dari 0.'] });
+      return;
+    }
 
+    setIsSaving(true);
+    setValidationErrors({});
     try {
-      await createTransaction({
+      const payload = {
         amount: Number(amount),
         type,
         category_id: categoryId ? Number(categoryId) : null,
         description,
         transaction_date: date.replace('T', ' ') + ':00' // Format: YYYY-MM-DD HH:mm:ss
-      }, {
-        ...(typeFilter ? { type: typeFilter } : {}),
-        ...(catFilter ? { category_id: catFilter } : {}),
-        ...(searchTerm ? { search: searchTerm } : {}),
-        sort_by: sortBy,
-        sort_order: sortOrder,
-        page: currentPage,
-        per_page: perPage,
-      });
+      };
+
+      if (editingTransaction) {
+        await updateTransaction(editingTransaction.id, payload, {
+          ...(typeFilter ? { type: typeFilter } : {}),
+          ...(catFilter ? { category_id: catFilter } : {}),
+          ...(searchTerm ? { search: searchTerm } : {}),
+          sort_by: sortBy,
+          sort_order: sortOrder,
+          page: currentPage,
+          per_page: perPage,
+        });
+      } else {
+        await createTransaction(payload, {
+          ...(typeFilter ? { type: typeFilter } : {}),
+          ...(catFilter ? { category_id: catFilter } : {}),
+          ...(searchTerm ? { search: searchTerm } : {}),
+          sort_by: sortBy,
+          sort_order: sortOrder,
+          page: currentPage,
+          per_page: perPage,
+        });
+      }
       // Reset form
-      setAmount('');
-      setDescription('');
-      setCategoryId('');
-      setShowAddForm(false);
-    } catch (e) {
-      alert('Gagal menambah transaksi');
+      handleCancel();
+    } catch (err: any) {
+      if (err.errors) {
+        setValidationErrors(err.errors);
+      } else {
+        setValidationErrors({ general: [err.message || 'Gagal menyimpan transaksi'] });
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -109,7 +160,13 @@ export default function Transactions() {
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-semibold text-gray-200">Daftar Transaksi</h3>
         <button
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={() => {
+            if (showAddForm) {
+              handleCancel();
+            } else {
+              setShowAddForm(true);
+            }
+          }}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2.5 rounded-xl text-sm transition-colors shadow-lg shadow-indigo-600/10"
         >
           <Plus className="w-4 h-4" />
@@ -120,8 +177,16 @@ export default function Transactions() {
       {/* Write transaction form overlay/card */}
       {showAddForm && (
         <form onSubmit={handleAddSubmit} className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl space-y-4 max-w-xl">
-          <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Catat Transaksi Finansial Baru</h4>
+          <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">
+            {editingTransaction ? 'Ubah Transaksi Finansial' : 'Catat Transaksi Finansial Baru'}
+          </h4>
           
+          {validationErrors.general && (
+            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs p-3 rounded-xl">
+              {validationErrors.general[0]}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Jumlah (Rp)</label>
@@ -130,9 +195,13 @@ export default function Transactions() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
-                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
+                disabled={isSaving}
+                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
                 placeholder="100000"
               />
+              {validationErrors.amount && (
+                <p className="text-rose-400 text-xs mt-1">{validationErrors.amount[0]}</p>
+              )}
             </div>
 
             <div>
@@ -140,11 +209,15 @@ export default function Transactions() {
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as 'income' | 'expense')}
-                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
+                disabled={isSaving}
+                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
               >
                 <option value="expense">Pengeluaran (Keluar)</option>
                 <option value="income">Pendapatan (Masuk)</option>
               </select>
+              {validationErrors.type && (
+                <p className="text-rose-400 text-xs mt-1">{validationErrors.type[0]}</p>
+              )}
             </div>
 
             <div>
@@ -152,7 +225,8 @@ export default function Transactions() {
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
+                disabled={isSaving}
+                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
               >
                 <option value="">Tanpa Kategori</option>
                 {categories.map((c) => (
@@ -161,6 +235,9 @@ export default function Transactions() {
                   </option>
                 ))}
               </select>
+              {validationErrors.category_id && (
+                <p className="text-rose-400 text-xs mt-1">{validationErrors.category_id[0]}</p>
+              )}
             </div>
 
             <div>
@@ -170,8 +247,12 @@ export default function Transactions() {
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
+                disabled={isSaving}
+                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
               />
+              {validationErrors.transaction_date && (
+                <p className="text-rose-400 text-xs mt-1">{validationErrors.transaction_date[0]}</p>
+              )}
             </div>
           </div>
 
@@ -181,24 +262,30 @@ export default function Transactions() {
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
+              disabled={isSaving}
+              className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
               placeholder="Catatan kecil pengeluaran/pemasukan..."
             />
+            {validationErrors.description && (
+              <p className="text-rose-400 text-xs mt-1">{validationErrors.description[0]}</p>
+            )}
           </div>
 
           <div className="flex gap-3 justify-end mt-2">
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
-              className="bg-transparent hover:bg-gray-800 text-gray-400 font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors border border-[#1e293b]"
+              onClick={handleCancel}
+              disabled={isSaving}
+              className="bg-transparent hover:bg-gray-800 text-gray-400 font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors border border-[#1e293b] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors"
+              disabled={isSaving}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Simpan Transaksi
+              {isSaving ? 'Menyimpan...' : editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi'}
             </button>
           </div>
         </form>
@@ -342,17 +429,26 @@ export default function Transactions() {
                     {t.type === 'income' ? '+' : '-'} Rp {Number(t.amount).toLocaleString('id-ID')}
                   </td>
                   <td className="py-4 px-6 text-center">
-                    <button
-                      onClick={() => {
-                        if (window.confirm('Yakin ingin menghapus transaksi ini?')) {
-                          deleteTransaction(t.id, activeFilters);
-                        }
-                      }}
-                      className="text-red-400 hover:text-red-300 p-1.5 rounded-lg hover:bg-red-500/5 border border-transparent hover:border-red-500/10 transition-colors"
-                      title="Hapus Transaksi"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleEditClick(t)}
+                        className="text-indigo-400 hover:text-indigo-300 p-1.5 rounded-lg hover:bg-indigo-500/5 border border-transparent hover:border-indigo-500/10 transition-colors"
+                        title="Ubah Transaksi"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Yakin ingin menghapus transaksi ini?')) {
+                            deleteTransaction(t.id, activeFilters);
+                          }
+                        }}
+                        className="text-red-400 hover:text-red-300 p-1.5 rounded-lg hover:bg-red-500/5 border border-transparent hover:border-red-500/10 transition-colors"
+                        title="Hapus Transaksi"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

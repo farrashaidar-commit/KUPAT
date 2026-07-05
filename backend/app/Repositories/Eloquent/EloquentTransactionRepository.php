@@ -46,9 +46,10 @@ class EloquentTransactionRepository extends BaseRepository implements Transactio
             });
         }
 
-        $sortBy = in_array($filters['sort_by'] ?? 'transaction_date', ['transaction_date', 'amount', 'type'])
-            ? $filters['sort_by']
-            : 'transaction_date';
+        $sortBy = $filters['sort_by'] ?? 'transaction_date';
+        if (!in_array($sortBy, ['transaction_date', 'amount', 'type'])) {
+            $sortBy = 'transaction_date';
+        }
 
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc');
         if (!in_array($sortOrder, ['asc', 'desc'])) {

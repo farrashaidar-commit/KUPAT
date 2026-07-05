@@ -29,7 +29,7 @@ class ReportController extends Controller
         }
 
         $transactions = Transaction::where('user_id', $user->id)
-            ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()])
+            ->whereBetween('transaction_date', [$start->startOfDay()->toDateTimeString(), $end->endOfDay()->toDateTimeString()])
             ->with('category')
             ->orderBy('transaction_date', 'asc')
             ->get();
