@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Plus, FileText, Cpu, Archive } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useFinancialStore } from '../store/useFinancialStore';
+import { apiFetch } from '../utils/api';
 
 type Action = {
   id: string;
@@ -33,15 +34,7 @@ export default function QuickActions() {
       icon: FileText,
       onClick: async () => {
         try {
-          const res = await fetch('/api/reports/export', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${localStorage.getItem('kupat_token')}`,
-            },
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message || 'Export failed');
+          const data = await apiFetch('/reports/export', { method: 'POST' });
           const blob = new Blob([atob(data.data.csv)], { type: 'text/csv' });
           const url = URL.createObjectURL(blob);
           const anchor = document.createElement('a');

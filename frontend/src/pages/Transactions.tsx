@@ -28,53 +28,74 @@ export default function Transactions() {
   const [typeFilter, setTypeFilter] = useState('');
   const [catFilter, setCatFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDate] = useState('');
+  const [endDate] = useState('');
   const [sortBy, setSortBy] = useState('transaction_date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState('20');
+  const [perPage] = useState('20');
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, string | number>>({
+    sort_by: 'transaction_date',
+    sort_order: 'desc',
+    page: 1,
+    per_page: '20',
+  });
+
+  const buildFilterPayload = (overrides: Record<string, string | number> = {}) => {
+    const payload = {
+      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(catFilter ? { category_id: catFilter } : {}),
+      ...(startDate ? { start_date: startDate } : {}),
+      ...(endDate ? { end_date: endDate } : {}),
+      ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
+      sort_by: sortBy,
+      sort_order: sortOrder,
+      page: currentPage,
+      per_page: perPage,
+      ...overrides,
+    };
+
+    return Object.fromEntries(
+      Object.entries(payload).filter(([, value]) => value !== '' && value !== null && value !== undefined)
+    ) as Record<string, string | number>;
+  };
 
   const activeFilters = {
-    ...(typeFilter ? { type: typeFilter } : {}),
-    ...(catFilter ? { category_id: catFilter } : {}),
-    ...(searchTerm ? { search: searchTerm } : {}),
-    sort_by: sortBy,
-    sort_order: sortOrder,
+    ...(appliedFilters ?? {}),
     page: currentPage,
     per_page: perPage,
   };
 
   useEffect(() => {
-    fetchTransactions(activeFilters);
+    const initialFilters = buildFilterPayload({ page: 1 });
+    setAppliedFilters(initialFilters);
+    fetchTransactions(initialFilters);
     fetchCategories();
   }, []);
 
   const handleApplyFilters = () => {
+    const nextFilters = buildFilterPayload({ page: 1 });
     setCurrentPage(1);
-    fetchTransactions({
-      ...(typeFilter ? { type: typeFilter } : {}),
-      ...(catFilter ? { category_id: catFilter } : {}),
-      ...(searchTerm ? { search: searchTerm } : {}),
-      sort_by: sortBy,
-      sort_order: sortOrder,
-      page: 1,
-      per_page: perPage,
-    });
+    setAppliedFilters(nextFilters);
+    fetchTransactions(nextFilters);
   };
 
   const handlePageChange = (page: number) => {
     if (page < 1 || (transactionPagination && page > transactionPagination.last_page)) {
       return;
     }
+
+    const nextFilters = buildFilterPayload({ page });
     setCurrentPage(page);
-    fetchTransactions({
-      ...(typeFilter ? { type: typeFilter } : {}),
-      ...(catFilter ? { category_id: catFilter } : {}),
-      ...(searchTerm ? { search: searchTerm } : {}),
-      sort_by: sortBy,
-      sort_order: sortOrder,
-      page,
-      per_page: perPage,
-    });
+    setAppliedFilters(nextFilters);
+    fetchTransactions(nextFilters);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleApplyFilters();
+    }
   };
 
   const handleCancel = () => {
@@ -210,7 +231,7 @@ export default function Transactions() {
                 value={type}
                 onChange={(e) => setType(e.target.value as 'income' | 'expense')}
                 disabled={isSaving}
-                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                className="w-full appearance-none bg-[#111928] border border-[#1e293b] rounded-2xl px-4 py-2.5 pr-10 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all duration-200 disabled:opacity-50"
               >
                 <option value="expense">Pengeluaran (Keluar)</option>
                 <option value="income">Pendapatan (Masuk)</option>
@@ -226,7 +247,7 @@ export default function Transactions() {
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
                 disabled={isSaving}
-                className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                className="w-full appearance-none bg-[#111928] border border-[#1e293b] rounded-2xl px-4 py-2.5 pr-10 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all duration-200 disabled:opacity-50"
               >
                 <option value="">Tanpa Kategori</option>
                 {categories.map((c) => (
@@ -292,13 +313,13 @@ export default function Transactions() {
       )}
 
       {/* Filters bar */}
-      <div className="bg-[#0d1322] border border-[#1e293b] p-5 rounded-2xl flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Filter Tipe</label>
+      <div className="bg-[#0d1322] border border-[#1e293b] p-4 rounded-2xl flex flex-wrap gap-3 items-end shadow-[0_10px_30px_rgba(2,6,23,0.18)]">
+        <div className="min-w-[9.5rem]">
+          <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.2em] mb-1.5">Filter Tipe</label>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
+            className="w-full appearance-none bg-[#111928] border border-[#243041] rounded-xl px-3.5 py-2.5 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] cursor-pointer transition-all duration-200 hover:border-indigo-400/60 hover:bg-[#142033] focus:outline-none focus:border-indigo-400 focus:bg-[#142033] focus:ring-2 focus:ring-indigo-500/20"
           >
             <option value="">Semua Tipe</option>
             <option value="income">Pendapatan</option>
@@ -306,12 +327,12 @@ export default function Transactions() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Filter Kategori</label>
+        <div className="min-w-[10.5rem]">
+          <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.2em] mb-1.5">Filter Kategori</label>
           <select
             value={catFilter}
             onChange={(e) => setCatFilter(e.target.value)}
-            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
+            className="w-full appearance-none bg-[#111928] border border-[#243041] rounded-xl px-3.5 py-2.5 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] cursor-pointer transition-all duration-200 hover:border-indigo-400/60 hover:bg-[#142033] focus:outline-none focus:border-indigo-400 focus:bg-[#142033] focus:ring-2 focus:ring-indigo-500/20"
           >
             <option value="">Semua Kategori</option>
             {categories.map((c) => (
@@ -320,23 +341,24 @@ export default function Transactions() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Cari</label>
+        <div className="min-w-[14rem] flex-1">
+          <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.2em] mb-1.5">Cari</label>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Deskripsi atau kategori..."
-            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
+            className="w-full bg-[#111928] border border-[#243041] rounded-xl px-3.5 py-2.5 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition-all duration-200 placeholder:text-gray-500 focus:outline-none focus:border-indigo-400 focus:bg-[#142033] focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Urutkan</label>
+        <div className="min-w-[8.5rem]">
+          <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.2em] mb-1.5">Urutkan</label>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
+            className="w-full appearance-none bg-[#111928] border border-[#243041] rounded-xl px-3.5 py-2.5 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] cursor-pointer transition-all duration-200 hover:border-indigo-400/60 hover:bg-[#142033] focus:outline-none focus:border-indigo-400 focus:bg-[#142033] focus:ring-2 focus:ring-indigo-500/20"
           >
             <option value="transaction_date">Tanggal</option>
             <option value="amount">Jumlah</option>
@@ -344,34 +366,9 @@ export default function Transactions() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Arah</label>
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
-          >
-            <option value="desc">Baru ke Lama</option>
-            <option value="asc">Lama ke Baru</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Per Halaman</label>
-          <select
-            value={perPage}
-            onChange={(e) => setPerPage(e.target.value)}
-            className="bg-[#111928] border border-[#1e293b] rounded-lg px-3 py-1.5 text-xs text-gray-200"
-          >
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-          </select>
-        </div>
-
         <button
           onClick={handleApplyFilters}
-          className="bg-gray-800 hover:bg-gray-700 border border-[#1e293b] text-gray-200 text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
+          className="h-[44px] px-4 rounded-xl border border-[#243041] bg-[#111928] text-sm font-semibold text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition-all duration-200 hover:bg-[#142033] hover:border-indigo-400/60 hover:text-white"
         >
           Terapkan
         </button>

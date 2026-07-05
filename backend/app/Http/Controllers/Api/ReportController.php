@@ -34,13 +34,14 @@ class ReportController extends Controller
             ->orderBy('transaction_date', 'asc')
             ->get();
 
-        // build CSV
         $csv = "date,description,category,type,amount\n";
         foreach ($transactions as $t) {
+            $description = $this->sanitizeCsvValue($t->description ?? '');
+            $category = $this->sanitizeCsvValue($t->category->name ?? 'General');
             $csv .= sprintf("%s,%s,%s,%s,%.2f\n",
                 $t->transaction_date->toDateString(),
-                str_replace(["\n", ","], [' ', ' '], $t->description ?? ''),
-                $t->category->name ?? 'General',
+                $description,
+                $category,
                 $t->type,
                 $t->amount
             );
@@ -54,5 +55,17 @@ class ReportController extends Controller
                 'filename' => 'report_' . $type . '_' . now()->format('Ymd') . '.csv'
             ]
         ], 200);
+    }
+
+    protected function sanitizeCsvValue(string $value): string
+    {
+        $value = str_replace(["\r", "\n"], ' ', $value);
+        $value = str_replace('"', '""', $value);
+
+        if (str_contains($value, ',') || str_contains($value, '"') || str_contains($value, ' ')) {
+            return '"' . $value . '"';
+        }
+
+        return $value;
     }
 }

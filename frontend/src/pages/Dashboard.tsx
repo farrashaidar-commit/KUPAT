@@ -9,6 +9,8 @@ import EmptyState from '../components/EmptyState';
 import BudgetProgress from '../components/BudgetProgress';
 import InsightCard from '../components/InsightCard';
 import { buildCashflowChartData } from '../utils/dashboardChart';
+import { buildCategorySpendingChartData } from '../utils/dashboardCategoryData';
+import { getDashboardMetricValue } from '../utils/dashboardMetrics';
 
 export default function Dashboard() {
   const { user } = useAuthStore();
@@ -18,10 +20,10 @@ export default function Dashboard() {
     fetchDashboard();
   }, []);
 
-  const incomeValue = dashboardData?.statistics?.monthly_income?.value ?? 0;
-  const expenseValue = dashboardData?.statistics?.monthly_expense?.value ?? 0;
-  const healthValue = dashboardData?.statistics?.financial_health_score?.value ?? 100;
-  const balanceValue = dashboardData?.header?.balance ?? (user ? Number(user.balance) : 0);
+  const incomeValue = getDashboardMetricValue(dashboardData, ['statistics', 'monthly_income', 'value'], Number(user?.balance ?? 0));
+  const expenseValue = getDashboardMetricValue(dashboardData, ['statistics', 'monthly_expense', 'value'], 0);
+  const healthValue = getDashboardMetricValue(dashboardData, ['statistics', 'financial_health_score', 'value'], getDashboardMetricValue(dashboardData, ['financial_health', 'score'], 0));
+  const balanceValue = getDashboardMetricValue(dashboardData, ['header', 'balance'], getDashboardMetricValue(dashboardData, ['statistics', 'total_balance', 'value'], user ? Number(user.balance) : 0));
   const budgetProgressData = dashboardData?.budget_progress ?? {
     monthly_budget: 0,
     used_budget: 0,
@@ -32,6 +34,7 @@ export default function Dashboard() {
   const quickInsightItems = dashboardData?.ai_insights ?? [];
   const recentTransactions = dashboardData?.recent_transactions ?? [];
   const chartData = buildCashflowChartData(dashboardData?.cashflow ?? []);
+  const categoryChartData = buildCategorySpendingChartData(dashboardData?.expense_categories ?? []);
 
   return (
     <div className="space-y-6">
@@ -51,7 +54,7 @@ export default function Dashboard() {
         <StatCard title="Total Aset / Saldo" value={balanceValue} icon={DollarSign} color="emerald" />
         <StatCard title="Pemasukan Bulan Ini" value={incomeValue} icon={TrendingUp} color="emerald" />
         <StatCard title="Pengeluaran Bulan Ini" value={expenseValue} icon={TrendingDown} color="rose" />
-        <StatCard title="Skor Kesehatan Anggaran" value={healthValue} icon={Activity} color="indigo" />
+        <StatCard title="Skor Kesehatan Anggaran" value={healthValue} prefix="" suffix="%" icon={Activity} color="indigo" />
       </div>
 
       {/* Main Charts & Widgets Section */}
@@ -167,27 +170,15 @@ export default function Dashboard() {
           <div className="bg-[#0d1322] border border-[#1e293b] p-6 rounded-2xl">
             <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Spending by Category</h4>
             <div className="h-48">
-              {recentTransactions.length === 0 ? (
+              {categoryChartData.length === 0 ? (
                 <EmptyState title="No categories yet" description="Transactions will populate this chart." actionLabel="Add Transaction" onAction={() => {}} />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie dataKey="value" data={
-                      (() => {
-                        const map: any = {};
-                        recentTransactions.forEach((t) => {
-                          const name = t.category?.name || 'General';
-                          map[name] = (map[name] || 0) + Number(t.amount);
-                        });
-                        return Object.keys(map).map(k => ({ name: k, value: map[k] }));
-                      })()
-                    } innerRadius={50} outerRadius={80} paddingAngle={4}>
-                      {(() => {
-                        const colors = ['#60a5fa','#34d399','#f87171','#fbbf24','#a78bfa','#f472b6'];
-                        return Array.from({ length: 6 }).map((_, i) => (
-                          <Cell key={i} fill={colors[i % colors.length]} />
-                        ));
-                      })()}
+                    <Pie dataKey="value" data={categoryChartData} innerRadius={50} outerRadius={80} paddingAngle={4}>
+                      {categoryChartData.map((entry: any, index: number) => (
+                        <Cell key={`${entry.name}-${index}`} fill={entry.color || ['#60a5fa','#34d399','#f87171','#fbbf24','#a78bfa','#f472b6'][index % 6]} />
+                      ))}
                     </Pie>
                     <Legend verticalAlign="bottom" wrapperStyle={{ color: '#9ca3af' }} />
                   </PieChart>

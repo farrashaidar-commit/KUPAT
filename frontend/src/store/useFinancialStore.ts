@@ -99,7 +99,7 @@ interface FinancialState {
   createTransaction: (data: any, filters?: any) => Promise<void>;
   updateTransaction: (id: number, data: any, filters?: any) => Promise<void>;
   deleteTransaction: (id: number, filters?: any) => Promise<void>;
-  fetchDashboard: () => Promise<void>;
+  fetchDashboard: (force?: boolean) => Promise<void>;
   searchTransactions: (query: string) => Promise<void>;
   fetchHealthScore: () => Promise<void>;
   fetchInsights: () => Promise<void>;
@@ -170,10 +170,12 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
         method: 'POST',
         body: JSON.stringify(data)
       });
-      await get().fetchBudgets();
-      await get().fetchDashboard();
-      await get().fetchHealthScore();
-      await get().fetchInsights();
+      await Promise.all([
+        get().fetchBudgets(),
+        get().fetchDashboard(true),
+        get().fetchHealthScore(),
+        get().fetchInsights(),
+      ]);
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
@@ -184,10 +186,12 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
     set({ isLoading: true });
     try {
       await apiFetch(`/budgets/${id}`, { method: 'DELETE' });
-      await get().fetchBudgets();
-      await get().fetchDashboard();
-      await get().fetchHealthScore();
-      await get().fetchInsights();
+      await Promise.all([
+        get().fetchBudgets(),
+        get().fetchDashboard(true),
+        get().fetchHealthScore(),
+        get().fetchInsights(),
+      ]);
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
     }
@@ -196,7 +200,10 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
   fetchTransactions: async (filters = {}) => {
     set({ isLoading: true });
     try {
-      const queryString = new URLSearchParams(filters).toString();
+      const normalizedFilters = Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== '' && value !== null && value !== undefined)
+      );
+      const queryString = new URLSearchParams(normalizedFilters as Record<string, string>).toString();
       const path = queryString ? `/transactions?${queryString}` : '/transactions';
       const res = await apiFetch(path);
       const transactionData = Array.isArray(res.data) ? res.data : res.data.data ?? [];
@@ -214,11 +221,13 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
         method: 'POST',
         body: JSON.stringify(data)
       });
-      await get().fetchTransactions(filters);
-      await useAuthStore.getState().fetchUser();
-      await get().fetchDashboard();
-      await get().fetchHealthScore();
-      await get().fetchInsights();
+      await Promise.all([
+        get().fetchTransactions(filters),
+        useAuthStore.getState().fetchUser(),
+        get().fetchDashboard(true),
+        get().fetchHealthScore(),
+        get().fetchInsights(),
+      ]);
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
@@ -232,11 +241,13 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
         method: 'PUT',
         body: JSON.stringify(data)
       });
-      await get().fetchTransactions(filters);
-      await useAuthStore.getState().fetchUser();
-      await get().fetchDashboard();
-      await get().fetchHealthScore();
-      await get().fetchInsights();
+      await Promise.all([
+        get().fetchTransactions(filters),
+        useAuthStore.getState().fetchUser(),
+        get().fetchDashboard(true),
+        get().fetchHealthScore(),
+        get().fetchInsights(),
+      ]);
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
@@ -247,11 +258,13 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
     set({ isLoading: true });
     try {
       await apiFetch(`/transactions/${id}`, { method: 'DELETE' });
-      await get().fetchTransactions(filters);
-      await useAuthStore.getState().fetchUser();
-      await get().fetchDashboard();
-      await get().fetchHealthScore();
-      await get().fetchInsights();
+      await Promise.all([
+        get().fetchTransactions(filters),
+        useAuthStore.getState().fetchUser(),
+        get().fetchDashboard(true),
+        get().fetchHealthScore(),
+        get().fetchInsights(),
+      ]);
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
     }

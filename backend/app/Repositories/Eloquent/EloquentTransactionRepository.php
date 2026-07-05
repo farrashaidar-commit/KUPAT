@@ -27,11 +27,11 @@ class EloquentTransactionRepository extends BaseRepository implements Transactio
         }
 
         if (!empty($filters['start_date'])) {
-            $query->where('transaction_date', '>=', $filters['start_date']);
+            $query->where('transaction_date', '>=', $filters['start_date'] . ' 00:00:00');
         }
 
         if (!empty($filters['end_date'])) {
-            $query->where('transaction_date', '<=', $filters['end_date']);
+            $query->where('transaction_date', '<=', $filters['end_date'] . ' 23:59:59');
         }
 
         if (!empty($filters['search'])) {
