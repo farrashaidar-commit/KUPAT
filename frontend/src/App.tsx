@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Categories from './pages/Categories';
+import Profile from './pages/Profile';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, fetchUser, user } = useAuthStore();
@@ -50,6 +51,7 @@ function App() {
           <Route path="transactions" element={<Transactions />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="categories" element={<Categories />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

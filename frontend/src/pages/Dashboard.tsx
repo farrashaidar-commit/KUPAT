@@ -16,9 +16,13 @@ export default function Dashboard() {
   const { user } = useAuthStore();
   const { dashboardData, fetchDashboard } = useFinancialStore();
 
+  // Fetch dashboard on mount and when user changes (re-login)
+  // Force refresh to ensure fresh data when navigating back to this page
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    // Always force refresh to get latest data when component mounts
+    // This ensures data is fresh when navigating back from other pages
+    fetchDashboard(true);
+  }, [user?.id]);
 
   const incomeValue = getDashboardMetricValue(dashboardData, ['statistics', 'monthly_income', 'value'], Number(user?.balance ?? 0));
   const expenseValue = getDashboardMetricValue(dashboardData, ['statistics', 'monthly_expense', 'value'], 0);

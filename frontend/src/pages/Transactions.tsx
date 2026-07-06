@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useFinancialStore } from '../store/useFinancialStore';
 import { Plus, Trash2, ArrowUpRight, ArrowDownLeft, Pencil } from 'lucide-react';
+import CustomSelect from '../components/CustomSelect';
 
 export default function Transactions() {
   const { 
@@ -316,29 +317,29 @@ export default function Transactions() {
       <div className="bg-[#0d1322] border border-[#1e293b] p-4 rounded-2xl flex flex-wrap gap-3 items-end shadow-[0_10px_30px_rgba(2,6,23,0.18)]">
         <div className="min-w-[9.5rem]">
           <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.2em] mb-1.5">Filter Tipe</label>
-          <select
+          <CustomSelect
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="w-full appearance-none bg-[#111928] border border-[#243041] rounded-xl px-3.5 py-2.5 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] cursor-pointer transition-all duration-200 hover:border-indigo-400/60 hover:bg-[#142033] focus:outline-none focus:border-indigo-400 focus:bg-[#142033] focus:ring-2 focus:ring-indigo-500/20"
-          >
-            <option value="">Semua Tipe</option>
-            <option value="income">Pendapatan</option>
-            <option value="expense">Pengeluaran</option>
-          </select>
+            onChange={(value) => setTypeFilter(String(value))}
+            options={[
+              { value: '', label: 'Semua Tipe' },
+              { value: 'income', label: 'Pendapatan' },
+              { value: 'expense', label: 'Pengeluaran' },
+            ]}
+            placeholder="Semua Tipe"
+          />
         </div>
 
         <div className="min-w-[10.5rem]">
           <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.2em] mb-1.5">Filter Kategori</label>
-          <select
+          <CustomSelect
             value={catFilter}
-            onChange={(e) => setCatFilter(e.target.value)}
-            className="w-full appearance-none bg-[#111928] border border-[#243041] rounded-xl px-3.5 py-2.5 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] cursor-pointer transition-all duration-200 hover:border-indigo-400/60 hover:bg-[#142033] focus:outline-none focus:border-indigo-400 focus:bg-[#142033] focus:ring-2 focus:ring-indigo-500/20"
-          >
-            <option value="">Semua Kategori</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+            onChange={(value) => setCatFilter(String(value))}
+            options={[
+              { value: '', label: 'Semua Kategori' },
+              ...categories.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+            placeholder="Semua Kategori"
+          />
         </div>
 
         <div className="min-w-[14rem] flex-1">
@@ -355,15 +356,16 @@ export default function Transactions() {
 
         <div className="min-w-[8.5rem]">
           <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.2em] mb-1.5">Urutkan</label>
-          <select
+          <CustomSelect
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="w-full appearance-none bg-[#111928] border border-[#243041] rounded-xl px-3.5 py-2.5 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] cursor-pointer transition-all duration-200 hover:border-indigo-400/60 hover:bg-[#142033] focus:outline-none focus:border-indigo-400 focus:bg-[#142033] focus:ring-2 focus:ring-indigo-500/20"
-          >
-            <option value="transaction_date">Tanggal</option>
-            <option value="amount">Jumlah</option>
-            <option value="type">Tipe</option>
-          </select>
+            onChange={(value) => setSortBy(String(value))}
+            options={[
+              { value: 'transaction_date', label: 'Tanggal' },
+              { value: 'amount', label: 'Jumlah' },
+              { value: 'type', label: 'Tipe' },
+            ]}
+            placeholder="Urutkan"
+          />
         </div>
 
         <button

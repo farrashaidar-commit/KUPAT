@@ -100,6 +100,7 @@ interface FinancialState {
   updateTransaction: (id: number, data: any, filters?: any) => Promise<void>;
   deleteTransaction: (id: number, filters?: any) => Promise<void>;
   fetchDashboard: (force?: boolean) => Promise<void>;
+  clearDashboardCache: () => void;
   searchTransactions: (query: string) => Promise<void>;
   fetchHealthScore: () => Promise<void>;
   fetchInsights: () => Promise<void>;
@@ -170,12 +171,15 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
         method: 'POST',
         body: JSON.stringify(data)
       });
+      // Invalidate dashboard cache to ensure fresh data
+      get().clearDashboardCache();
       await Promise.all([
         get().fetchBudgets(),
         get().fetchDashboard(true),
         get().fetchHealthScore(),
         get().fetchInsights(),
       ]);
+      set({ isLoading: false, error: null });
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
@@ -186,12 +190,15 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
     set({ isLoading: true });
     try {
       await apiFetch(`/budgets/${id}`, { method: 'DELETE' });
+      // Invalidate dashboard cache to ensure fresh data
+      get().clearDashboardCache();
       await Promise.all([
         get().fetchBudgets(),
         get().fetchDashboard(true),
         get().fetchHealthScore(),
         get().fetchInsights(),
       ]);
+      set({ isLoading: false, error: null });
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
     }
@@ -221,15 +228,25 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
         method: 'POST',
         body: JSON.stringify(data)
       });
-      await Promise.all([
+      // Refresh all related data after successful transaction creation
+      const refreshPromises = [
         get().fetchTransactions(filters),
         useAuthStore.getState().fetchUser(),
+      ];
+      
+      // Also invalidate dashboard cache to ensure fresh data
+      get().clearDashboardCache();
+      refreshPromises.push(
         get().fetchDashboard(true),
         get().fetchHealthScore(),
         get().fetchInsights(),
-      ]);
+      );
+
+      await Promise.all(refreshPromises);
+      set({ isLoading: false, error: null });
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      const errorMsg = err.message || 'Failed to create transaction';
+      set({ error: errorMsg, isLoading: false });
       throw err;
     }
   },
@@ -241,15 +258,25 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
         method: 'PUT',
         body: JSON.stringify(data)
       });
-      await Promise.all([
+      // Refresh all related data after successful transaction update
+      const refreshPromises = [
         get().fetchTransactions(filters),
         useAuthStore.getState().fetchUser(),
+      ];
+      
+      // Also invalidate dashboard cache to ensure fresh data
+      get().clearDashboardCache();
+      refreshPromises.push(
         get().fetchDashboard(true),
         get().fetchHealthScore(),
         get().fetchInsights(),
-      ]);
+      );
+
+      await Promise.all(refreshPromises);
+      set({ isLoading: false, error: null });
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      const errorMsg = err.message || 'Failed to update transaction';
+      set({ error: errorMsg, isLoading: false });
       throw err;
     }
   },
@@ -258,15 +285,26 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
     set({ isLoading: true });
     try {
       await apiFetch(`/transactions/${id}`, { method: 'DELETE' });
-      await Promise.all([
+      // Refresh all related data after successful transaction deletion
+      const refreshPromises = [
         get().fetchTransactions(filters),
         useAuthStore.getState().fetchUser(),
+      ];
+      
+      // Also invalidate dashboard cache to ensure fresh data
+      get().clearDashboardCache();
+      refreshPromises.push(
         get().fetchDashboard(true),
         get().fetchHealthScore(),
         get().fetchInsights(),
-      ]);
+      );
+
+      await Promise.all(refreshPromises);
+      set({ isLoading: false, error: null });
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      const errorMsg = err.message || 'Failed to delete transaction';
+      set({ error: errorMsg, isLoading: false });
+      throw err;
     }
   },
 
@@ -288,12 +326,20 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
   },
 
   fetchDashboard: async (force = false) => {
-    if (!force && (get().dashboardData || get().dashboardRequestPromise)) {
-      return get().dashboardRequestPromise ?? Promise.resolve();
+    // If not forcing refresh and data exists, return immediately
+    if (!force && get().dashboardData) {
+      return Promise.resolve();
     }
 
+    // If already fetching, return existing promise to avoid duplicate requests
+    const existingPromise = get().dashboardRequestPromise;
+    if (!force && existingPromise) {
+      return existingPromise;
+    }
+
+    // Create new request
     const request = (async () => {
-      set({ isLoading: true });
+      set({ isLoading: true, error: null });
       try {
         const res = await apiFetch('/dashboard');
         const dashboard = res.data;
@@ -302,14 +348,19 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
           dashboardData: dashboard,
           notifications: dashboard.notifications || [],
           transactions: previousTransactions,
-          dashboardRequestPromise: null,
-          isLoading: false
+          isLoading: false,
+          error: null
         });
       } catch (err: any) {
-        set({ error: err.message, dashboardRequestPromise: null, isLoading: false });
+        set({ error: err.message, isLoading: false });
+        throw err; // Re-throw so caller knows about the error
+      } finally {
+        // Clear the promise reference when done (success or error)
+        set({ dashboardRequestPromise: null });
       }
     })();
 
+    // Store the promise for deduplication
     set({ dashboardRequestPromise: request });
     return request;
   },
@@ -330,5 +381,16 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
     } catch (err: any) {
       console.error(err);
     }
+  },
+
+  clearDashboardCache: () => {
+    // Clear all cached dashboard-related data to force fresh fetch
+    set({
+      dashboardData: null,
+      dashboardRequestPromise: null,
+      healthScore: null,
+      insights: null,
+      error: null
+    });
   }
 }));

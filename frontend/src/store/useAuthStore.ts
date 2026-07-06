@@ -7,6 +7,9 @@ interface User {
   email: string;
   balance: number;
   monthly_budget_limit: number;
+  created_at?: string;
+  role?: string;
+  username?: string;
 }
 
 interface AuthState {
@@ -18,6 +21,7 @@ interface AuthState {
   login: (credentials: any) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (data: { name: string }) => Promise<any>;
   fetchUser: () => Promise<void>;
   clearError: () => void;
 }
@@ -66,6 +70,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     } finally {
       localStorage.removeItem('kupat_token');
       set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+    }
+  },
+  updateProfile: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiFetch('/user', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      set({ user: res.data.user, isLoading: false });
+      return res;
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err;
     }
   },
   fetchUser: async () => {
