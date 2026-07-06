@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { motion } from 'framer-motion';
+import KupatLogo from '../components/KupatLogo';
 
 export default function Login() {
   const { login, error, clearError, isLoading } = useAuthStore();
@@ -27,8 +28,8 @@ export default function Login() {
         className="w-full max-w-md bg-[#0d1322] border border-[#1e293b] rounded-2xl p-8 space-y-6 shadow-xl"
       >
         <div className="text-center space-y-2">
-          <div className="inline-flex w-12 h-12 rounded-xl bg-indigo-600 items-center justify-center font-bold text-white text-xl mx-auto mb-2">
-            K
+          <div className="mx-auto mb-3 flex justify-center">
+            <KupatLogo iconClassName="w-24 h-24 sm:w-28 sm:h-28" />
           </div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
             Masuk KUPAT

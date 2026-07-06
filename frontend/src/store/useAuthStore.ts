@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { apiFetch } from '../utils/api';
+import { getFriendlyValidationMessages, normalizeValidationErrors } from '../utils/validation';
 
 interface User {
   id: number;
@@ -18,6 +19,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  validationErrors: Record<string, string[]>;
   login: (credentials: any) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
@@ -32,9 +34,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: !!localStorage.getItem('kupat_token'),
   isLoading: false,
   error: null,
-  clearError: () => set({ error: null }),
+  validationErrors: {},
+  clearError: () => set({ error: null, validationErrors: {} }),
   login: async (credentials) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, validationErrors: {} });
     try {
       const res = await apiFetch('/login', {
         method: 'POST',
@@ -43,12 +46,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('kupat_token', res.data.token);
       set({ user: res.data.user, token: res.data.token, isAuthenticated: true, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      set({ error: err.message, isLoading: false, validationErrors: {} });
       throw err;
     }
   },
   register: async (data) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, validationErrors: {} });
     try {
       const res = await apiFetch('/register', {
         method: 'POST',
@@ -57,7 +60,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('kupat_token', res.data.token);
       set({ user: res.data.user, token: res.data.token, isAuthenticated: true, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message, isLoading: false });
+      const normalizedErrors = normalizeValidationErrors(err.errors);
+      const friendlyMessages = getFriendlyValidationMessages(normalizedErrors);
+      set({
+        error: friendlyMessages[0] || err.message || 'Registrasi gagal.',
+        validationErrors: normalizedErrors || {},
+        isLoading: false,
+      });
       throw err;
     }
   },
@@ -73,7 +82,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   updateProfile: async (data) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, validationErrors: {} });
     try {
       const res = await apiFetch('/user', {
         method: 'PUT',
@@ -93,7 +102,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: res.data.user, isAuthenticated: true, isLoading: false });
     } catch (err: any) {
       localStorage.removeItem('kupat_token');
-      set({ user: null, token: null, isAuthenticated: false, error: err.message, isLoading: false });
+      set({ user: null, token: null, isAuthenticated: false, error: err.message, validationErrors: {}, isLoading: false });
     }
   }
 }));

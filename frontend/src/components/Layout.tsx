@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useFinancialStore } from '../store/useFinancialStore';
 import { LayoutDashboard, Wallet, Landmark, Tags, LogOut, Bell, Search, ChevronDown, X } from 'lucide-react';
+import KupatLogo from './KupatLogo';
 
 export default function Layout() {
   const { user, logout } = useAuthStore();
@@ -65,11 +66,8 @@ export default function Layout() {
         <div>
           {/* Logo / Branding */}
           <div className="h-16 flex items-center px-6 border-b border-[#1e293b] gap-2">
-            <div
-              className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-lg text-white tracking-wider"
-              title={isSidebarCollapsed ? 'KUPAT' : undefined}
-            >
-              K
+            <div title={isSidebarCollapsed ? 'KUPAT' : undefined}>
+              <KupatLogo className="items-center" iconClassName="w-10 h-10" />
             </div>
             <span className={`${isSidebarCollapsed ? 'block md:hidden' : 'block'} text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent`}>
               KUPAT

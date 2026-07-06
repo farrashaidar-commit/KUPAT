@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { motion } from 'framer-motion';
+import KupatLogo from '../components/KupatLogo';
 
 export default function Register() {
-  const { register, error, clearError, isLoading } = useAuthStore();
+  const { register, error, clearError, isLoading, validationErrors } = useAuthStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +15,8 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== passwordConfirmation) {
-      alert('Kata sandi konfirmasi tidak cocok');
+      const message = 'Konfirmasi password tidak cocok.';
+      useAuthStore.setState({ error: message, validationErrors: { password_confirmation: [message] } });
       return;
     }
     try {
@@ -33,8 +35,8 @@ export default function Register() {
         className="w-full max-w-md bg-[#0d1322] border border-[#1e293b] rounded-2xl p-8 space-y-6 shadow-xl"
       >
         <div className="text-center space-y-2">
-          <div className="inline-flex w-12 h-12 rounded-xl bg-indigo-600 items-center justify-center font-bold text-white text-xl mx-auto mb-2">
-            K
+          <div className="mx-auto mb-3 flex justify-center">
+            <KupatLogo iconClassName="w-24 h-24 sm:w-28 sm:h-28" />
           </div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
             Daftar KUPAT
@@ -43,8 +45,19 @@ export default function Register() {
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm px-4 py-3 rounded-xl flex justify-between items-center">
-            <span>{error}</span>
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm px-4 py-3 rounded-xl flex justify-between items-center gap-3">
+            <div className="space-y-1">
+              <p>{error}</p>
+              {Object.entries(validationErrors).length > 0 && (
+                <ul className="list-disc list-inside text-xs text-red-300/90 space-y-0.5">
+                  {Object.entries(validationErrors).flatMap(([field, messages]) =>
+                    messages.map((message) => (
+                      <li key={`${field}-${message}`}>{message}</li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
             <button type="button" onClick={clearError} className="hover:text-white font-bold">&times;</button>
           </div>
         )}
@@ -59,9 +72,12 @@ export default function Register() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 transition-colors"
+              className={`w-full bg-[#111928] border rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none transition-colors ${validationErrors.name ? 'border-red-500 focus:border-red-500' : 'border-[#1e293b] focus:border-indigo-500'}`}
               placeholder="Contoh: John Doe"
             />
+            {validationErrors.name?.map((message) => (
+              <p key={message} className="mt-2 text-xs text-red-400">{message}</p>
+            ))}
           </div>
 
           <div>
@@ -73,9 +89,12 @@ export default function Register() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 transition-colors"
+              className={`w-full bg-[#111928] border rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none transition-colors ${validationErrors.email ? 'border-red-500 focus:border-red-500' : 'border-[#1e293b] focus:border-indigo-500'}`}
               placeholder="nama@email.com"
             />
+            {validationErrors.email?.map((message) => (
+              <p key={message} className="mt-2 text-xs text-red-400">{message}</p>
+            ))}
           </div>
 
           <div>
@@ -87,9 +106,12 @@ export default function Register() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 transition-colors"
+              className={`w-full bg-[#111928] border rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none transition-colors ${validationErrors.password ? 'border-red-500 focus:border-red-500' : 'border-[#1e293b] focus:border-indigo-500'}`}
               placeholder="Minimal 8 karakter"
             />
+            {validationErrors.password?.map((message) => (
+              <p key={message} className="mt-2 text-xs text-red-400">{message}</p>
+            ))}
           </div>
 
           <div>
@@ -101,9 +123,12 @@ export default function Register() {
               value={passwordConfirmation}
               onChange={(e) => setPasswordConfirmation(e.target.value)}
               required
-              className="w-full bg-[#111928] border border-[#1e293b] rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 transition-colors"
+              className={`w-full bg-[#111928] border rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none transition-colors ${validationErrors.password_confirmation ? 'border-red-500 focus:border-red-500' : 'border-[#1e293b] focus:border-indigo-500'}`}
               placeholder="••••••••"
             />
+            {validationErrors.password_confirmation?.map((message) => (
+              <p key={message} className="mt-2 text-xs text-red-400">{message}</p>
+            ))}
           </div>
 
           <button
