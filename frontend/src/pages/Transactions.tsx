@@ -228,15 +228,16 @@ export default function Transactions() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5 font-sans">Tipe</label>
-              <select
+              <CustomSelect
                 value={type}
-                onChange={(e) => setType(e.target.value as 'income' | 'expense')}
+                onChange={(val) => setType(String(val) as 'income' | 'expense')}
                 disabled={isSaving}
-                className="w-full appearance-none bg-[#111928] border border-[#1e293b] rounded-2xl px-4 py-2.5 pr-10 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all duration-200 disabled:opacity-50"
-              >
-                <option value="expense">Pengeluaran (Keluar)</option>
-                <option value="income">Pendapatan (Masuk)</option>
-              </select>
+                options={[
+                  { value: 'expense', label: 'Pengeluaran (Keluar)' },
+                  { value: 'income', label: 'Pendapatan (Masuk)' },
+                ]}
+                placeholder="Tipe"
+              />
               {validationErrors.type && (
                 <p className="text-rose-400 text-xs mt-1">{validationErrors.type[0]}</p>
               )}
@@ -244,19 +245,13 @@ export default function Transactions() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Kategori</label>
-              <select
+              <CustomSelect
                 value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
+                onChange={(val) => setCategoryId(String(val))}
                 disabled={isSaving}
-                className="w-full appearance-none bg-[#111928] border border-[#1e293b] rounded-2xl px-4 py-2.5 pr-10 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all duration-200 disabled:opacity-50"
-              >
-                <option value="">Tanpa Kategori</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.type === 'income' ? 'Masuk' : 'Keluar'})
-                  </option>
-                ))}
-              </select>
+                options={[{ value: '', label: 'Tanpa Kategori' }, ...categories.map((c) => ({ value: c.id, label: `${c.name} (${c.type === 'income' ? 'Masuk' : 'Keluar'})` }))]}
+                placeholder="Kategori"
+              />
               {validationErrors.category_id && (
                 <p className="text-rose-400 text-xs mt-1">{validationErrors.category_id[0]}</p>
               )}

@@ -20,6 +20,18 @@ interface Budget {
   end_date: string;
 }
 
+interface FinancialGoal {
+  id: number;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  remaining_amount: number;
+  deadline: string | null;
+  description: string | null;
+  status: 'active' | 'completed';
+  progress: number;
+}
+
 interface Transaction {
   id: number;
   category_id: number | null;
@@ -79,6 +91,7 @@ interface PaginationMeta {
 interface FinancialState {
   categories: Category[];
   budgets: Budget[];
+  financialGoals: FinancialGoal[];
   transactions: Transaction[];
   transactionPagination: PaginationMeta | null;
   healthScore: HealthScore | null;
@@ -95,6 +108,10 @@ interface FinancialState {
   fetchBudgets: () => Promise<void>;
   createBudget: (data: any) => Promise<void>;
   deleteBudget: (id: number) => Promise<void>;
+  fetchFinancialGoals: () => Promise<void>;
+  createFinancialGoal: (data: any) => Promise<void>;
+  updateFinancialGoal: (id: number, data: any) => Promise<void>;
+  deleteFinancialGoal: (id: number) => Promise<void>;
   fetchTransactions: (filters?: any) => Promise<void>;
   createTransaction: (data: any, filters?: any) => Promise<void>;
   updateTransaction: (id: number, data: any, filters?: any) => Promise<void>;
@@ -109,6 +126,7 @@ interface FinancialState {
 export const useFinancialStore = create<FinancialState>((set, get) => ({
   categories: [],
   budgets: [],
+  financialGoals: [],
   transactions: [],
   transactionPagination: null,
   healthScore: null,
@@ -198,6 +216,57 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
         get().fetchHealthScore(),
         get().fetchInsights(),
       ]);
+      set({ isLoading: false, error: null });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+    }
+  },
+
+  fetchFinancialGoals: async () => {
+    set({ isLoading: true });
+    try {
+      const res = await apiFetch('/financial-goals');
+      set({ financialGoals: res.data, isLoading: false });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+    }
+  },
+
+  createFinancialGoal: async (data) => {
+    set({ isLoading: true });
+    try {
+      await apiFetch('/financial-goals', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      await get().fetchFinancialGoals();
+      set({ isLoading: false, error: null });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err;
+    }
+  },
+
+  updateFinancialGoal: async (id, data) => {
+    set({ isLoading: true });
+    try {
+      await apiFetch(`/financial-goals/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+      await get().fetchFinancialGoals();
+      set({ isLoading: false, error: null });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err;
+    }
+  },
+
+  deleteFinancialGoal: async (id) => {
+    set({ isLoading: true });
+    try {
+      await apiFetch(`/financial-goals/${id}`, { method: 'DELETE' });
+      await get().fetchFinancialGoals();
       set({ isLoading: false, error: null });
     } catch (err: any) {
       set({ error: err.message, isLoading: false });

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useFinancialStore } from '../store/useFinancialStore';
-import { LayoutDashboard, Wallet, Landmark, Tags, LogOut, Bell, Search, ChevronDown, X } from 'lucide-react';
+import { LayoutDashboard, Wallet, Landmark, Tags, LogOut, Bell, Search, ChevronDown, X, Target } from 'lucide-react';
 import KupatLogo from './KupatLogo';
 
 export default function Layout() {
@@ -44,6 +44,7 @@ export default function Layout() {
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Transaksi', path: '/transactions', icon: Wallet },
     { name: 'Anggaran', path: '/budgets', icon: Landmark },
+    { name: 'Financial Goals', path: '/financial-goals', icon: Target },
     { name: 'Kategori', path: '/categories', icon: Tags },
   ];
 
@@ -65,13 +66,26 @@ export default function Layout() {
       >
         <div>
           {/* Logo / Branding */}
-          <div className="h-16 flex items-center px-6 border-b border-[#1e293b] gap-2">
-            <div title={isSidebarCollapsed ? 'KUPAT' : undefined}>
-              <KupatLogo className="items-center" iconClassName="w-10 h-10" />
+          <div className="h-16 flex items-center px-4 md:px-6 border-b border-[#1e293b] gap-2 justify-between">
+            <div className="flex items-center gap-2">
+              <div title={isSidebarCollapsed ? 'KUPAT' : undefined}>
+                <KupatLogo className="items-center" iconClassName="w-10 h-10" />
+              </div>
+              <span className={`${isSidebarCollapsed ? 'hidden' : 'block'} text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent`}>KUPAT</span>
             </div>
-            <span className={`${isSidebarCollapsed ? 'block md:hidden' : 'block'} text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent`}>
-              KUPAT
-            </span>
+
+            {/* Collapse toggle moved into sidebar header */}
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setIsSidebarCollapsed((s) => !s)}
+                className="p-2 rounded-xl bg-[#071021] hover:bg-[#0d1726] border border-[#111827] text-gray-300 ml-2 flex-shrink-0"
+                title="Toggle sidebar collapse"
+                aria-label="Toggle sidebar collapse"
+              >
+                {isSidebarCollapsed ? '›' : '‹'}
+              </button>
+            </div>
           </div>
 
           {/* Navigation Links */}
@@ -94,7 +108,7 @@ export default function Layout() {
                     style={{ justifyContent: isSidebarCollapsed ? 'center' : undefined }}
                 >
                   <Icon className="w-5 h-5" />
-                  <span className={`${isSidebarCollapsed ? 'block md:hidden' : 'block'}`}>{item.name}</span>
+                  <span className={`${isSidebarCollapsed ? 'hidden' : 'block'}`}>{item.name}</span>
                 </Link>
               );
             })}
@@ -145,16 +159,7 @@ export default function Layout() {
               </svg>
             </button>
 
-            {/* Collapse toggle for desktop */}
-            <button
-              type="button"
-              onClick={() => setIsSidebarCollapsed((s) => !s)}
-              className="hidden md:inline-flex p-2 ml-2 rounded-xl bg-[#071021] hover:bg-[#0d1726] border border-[#111827] text-gray-300"
-              title="Toggle sidebar collapse"
-              aria-label="Toggle sidebar collapse"
-            >
-              {isSidebarCollapsed ? '›' : '‹'}
-            </button>
+            {/* (Button moved into sidebar header) */}
             <h2 className="text-lg font-semibold text-gray-200 hidden md:block">
               {navItems.find((item) => item.path === location.pathname)?.name || 'Halaman'}
             </h2>

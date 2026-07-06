@@ -40,12 +40,26 @@ export default function Dashboard() {
   const chartData = buildCashflowChartData(dashboardData?.cashflow ?? []);
   const categoryChartData = buildCategorySpendingChartData(dashboardData?.expense_categories ?? []);
 
+  const getLocalGreeting = () => {
+    const now = new Date();
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    // Ranges (minutes since midnight):
+    // Good Morning: 05:00 – 11:59 => 300 - 719
+    // Good Afternoon: 12:00 – 16:59 => 720 - 1019
+    // Good Evening: 17:00 – 20:59 => 1020 - 1259
+    // Good Night: 21:00 – 04:59 => >=1260 or <300
+    if (minutes >= 300 && minutes <= 719) return 'Good Morning';
+    if (minutes >= 720 && minutes <= 1019) return 'Good Afternoon';
+    if (minutes >= 1020 && minutes <= 1259) return 'Good Evening';
+    return 'Good Night';
+  };
+
   return (
     <div className="space-y-6">
       {/* Greeting + Quick Actions */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-white">{dashboardData?.header?.greeting ?? (new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 18 ? 'Good Afternoon' : 'Good Evening')}, {user?.name || 'User'} 👋</h2>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-white">{dashboardData?.header?.greeting ?? getLocalGreeting()}, {user?.name || 'User'}</h2>
           <p className="text-sm text-gray-400 mt-1">{dashboardData?.header?.today ?? `Here's your financial overview today — ${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}`}</p>
         </div>
         <div>

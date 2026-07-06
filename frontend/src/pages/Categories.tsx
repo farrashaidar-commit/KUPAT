@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useFinancialStore } from '../store/useFinancialStore';
 import { Plus, Trash2, Tag } from 'lucide-react';
+import CustomSelect from '../components/CustomSelect';
 
 export default function Categories() {
   const { categories, fetchCategories, createCategory, deleteCategory } = useFinancialStore();
@@ -64,14 +65,15 @@ export default function Categories() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Tipe Kategori</label>
-              <select
+              <CustomSelect
                 value={type}
-                onChange={(e) => setType(e.target.value as 'income' | 'expense')}
-                className="w-full appearance-none bg-[#111928] border border-[#1e293b] rounded-2xl px-4 py-2.5 pr-10 text-sm text-gray-200 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all duration-200"
-              >
-                <option value="expense">Pengeluaran (Expense)</option>
-                <option value="income">Pendapatan (Income)</option>
-              </select>
+                onChange={(val) => setType(String(val) as 'income' | 'expense')}
+                options={[
+                  { value: 'expense', label: 'Pengeluaran (Expense)' },
+                  { value: 'income', label: 'Pendapatan (Income)' },
+                ]}
+                placeholder="Tipe Kategori"
+              />
             </div>
 
             <div>

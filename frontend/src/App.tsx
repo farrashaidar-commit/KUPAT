@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Categories from './pages/Categories';
+import FinancialGoals from './pages/FinancialGoals';
 import Profile from './pages/Profile';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -50,6 +51,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="budgets" element={<Budgets />} />
+          <Route path="financial-goals" element={<FinancialGoals />} />
           <Route path="categories" element={<Categories />} />
           <Route path="profile" element={<Profile />} />
         </Route>
