@@ -4,11 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview",
-    "test": "vitest run"
+    "dev": "node node_modules/.bin/vite",
+    "build": "node node_modules/.bin/tsc -b && node node_modules/.bin/vite build",
+    "lint": "node node_modules/.bin/oxlint",
+    "preview": "node node_modules/.bin/vite preview",
+    "test": "node node_modules/.bin/vitest run"
   },
   "dependencies": {
     "clsx": "^2.1.1",
