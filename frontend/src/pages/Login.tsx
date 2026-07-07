@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { motion } from 'framer-motion';
 import KupatLogo from '../components/KupatLogo';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 
 export default function Login() {
   const { login, error, clearError, isLoading } = useAuthStore();
@@ -83,6 +84,16 @@ export default function Login() {
             {isLoading ? 'Masuk...' : 'Masuk sekarang'}
           </button>
         </form>
+
+        <div className="flex items-center gap-3 mt-3">
+          <div className="flex-1 h-px bg-[#1e293b]" />
+          <div className="text-xs text-gray-400">atau</div>
+          <div className="flex-1 h-px bg-[#1e293b]" />
+        </div>
+
+        <div className="mt-3">
+          <GoogleAuthButton label="Lanjut dengan Google" />
+        </div>
 
         <p className="text-center text-sm text-gray-400">
           Belum punya akun?{' '}

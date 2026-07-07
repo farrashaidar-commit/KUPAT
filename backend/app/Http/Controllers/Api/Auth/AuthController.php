@@ -12,6 +12,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 /**
  * AuthController
@@ -138,5 +140,108 @@ class AuthController extends Controller
                 'user' => new UserResource($user),
             ],
         ], 200);
+    }
+
+    /**
+     * Redirect the user to Google's OAuth consent screen.
+     */
+    public function redirectToGoogle(Request $request)
+    {
+        $clientId = config('services.google.client_id');
+        $clientSecret = config('services.google.client_secret');
+        $redirectUri = config('services.google.redirect') ?? $request->root() . '/api/auth/google/callback';
+
+        if (empty($clientId) || empty($clientSecret)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Google OAuth is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your backend .env file.',
+            ], 500);
+        }
+
+        $scope = urlencode('openid email profile');
+        $authUrl = "https://accounts.google.com/o/oauth2/v2/auth?client_id={$clientId}&redirect_uri={$redirectUri}&response_type=code&scope={$scope}&access_type=offline&prompt=select_account";
+
+        return redirect()->away($authUrl);
+    }
+
+    /**
+     * Handle Google's OAuth callback, exchange code for tokens, create/find user and return a small HTML page
+     * that posts the Kupat token back to opener window and closes the popup.
+     */
+    public function handleGoogleCallback(Request $request)
+    {
+        $code = $request->query('code');
+        if (!$code) {
+            return response()->json(['success' => false, 'message' => 'Missing authorization code.'], 400);
+        }
+
+        $tokenEndpoint = 'https://oauth2.googleapis.com/token';
+        $clientId = config('services.google.client_id');
+        $clientSecret = config('services.google.client_secret');
+        $redirectUri = config('services.google.redirect') ?? $request->root() . '/api/auth/google/callback';
+
+        if (empty($clientId) || empty($clientSecret)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Google OAuth is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your backend .env file.',
+            ], 500);
+        }
+
+        $response = Http::asForm()->post($tokenEndpoint, [
+            'code' => $code,
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+            'redirect_uri' => $redirectUri,
+            'grant_type' => 'authorization_code',
+        ]);
+
+        if (!$response->ok()) {
+            return response()->json(['success' => false, 'message' => 'Failed to exchange code for token.'], 400);
+        }
+
+        $tokens = $response->json();
+        $accessToken = $tokens['access_token'] ?? null;
+        $idToken = $tokens['id_token'] ?? null;
+
+        if (!$idToken) {
+            return response()->json(['success' => false, 'message' => 'No id_token returned from Google.'], 400);
+        }
+
+        // Validate id_token by calling Google's tokeninfo endpoint
+        $tokenInfo = Http::get('https://oauth2.googleapis.com/tokeninfo', ['id_token' => $idToken])->json();
+
+        $email = $tokenInfo['email'] ?? null;
+        $emailVerified = ($tokenInfo['email_verified'] ?? 'false') === 'true';
+        $name = $tokenInfo['name'] ?? ($tokenInfo['given_name'] ?? '');
+
+        if (!$email || !$emailVerified) {
+            return response()->json(['success' => false, 'message' => 'Email not verified by Google.'], 400);
+        }
+
+        // Find or create user
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            $user = User::create([
+                'name' => $name ?: $email,
+                'email' => $email,
+                'password' => Hash::make(Str::random(40)),
+            ]);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        // Return HTML that posts message to opener window with token and user info, then closes popup
+        $payload = json_encode(['token' => $token, 'user' => (new UserResource($user))->toArray($request)]);
+        $html = "<!doctype html><html><head><meta charset=\"utf-8\"><title>Authentication successful</title></head><body>
+            <script>
+              try {
+                window.opener.postMessage({ type: 'kupat_google_auth', payload: $payload }, '*');
+              } catch(e) {}
+              window.close();
+            </script>
+            <p>Authentication successful. You can close this window.</p>
+            </body></html>";
+
+        return response($html, 200)->header('Content-Type', 'text/html');
     }
 }

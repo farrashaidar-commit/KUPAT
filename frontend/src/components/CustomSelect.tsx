@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -43,8 +43,8 @@ export default function CustomSelect({
     }
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside, true);
+      return () => document.removeEventListener('mousedown', handleClickOutside, true);
     }
   }, [isOpen]);
 
@@ -97,7 +97,10 @@ export default function CustomSelect({
   useEffect(() => {
     if (highlightedIndex >= 0 && listRef.current) {
       const items = listRef.current.querySelectorAll('li');
-      items[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+      const targetItem = items[highlightedIndex] as HTMLElement | undefined;
+      if (targetItem && typeof targetItem.scrollIntoView === 'function') {
+        targetItem.scrollIntoView({ block: 'nearest' });
+      }
     }
   }, [highlightedIndex]);
 
@@ -109,7 +112,7 @@ export default function CustomSelect({
 
   const handleToggle = () => {
     if (!disabled) {
-      setIsOpen(!isOpen);
+      setIsOpen(prev => !prev);
       if (!isOpen) {
         setHighlightedIndex(-1);
       }
@@ -120,6 +123,7 @@ export default function CustomSelect({
     <div ref={containerRef} className={`relative w-full ${className}`}>
       {/* Trigger Button */}
       <button
+        type="button"
         ref={inputRef}
         onClick={handleToggle}
         disabled={disabled}
@@ -173,11 +177,7 @@ export default function CustomSelect({
                   className={`cursor-pointer transition-all duration-150 text-sm overflow-hidden`}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   onMouseLeave={() => setHighlightedIndex(-1)}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleSelect(option.value);
-                  }}
+                  onClick={() => handleSelect(option.value)}
                 >
                   <motion.div
                     initial={{ opacity: 0 }}
